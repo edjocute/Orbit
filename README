@@ -1,0 +1,121 @@
+Readme for force calculation 
+
+(1) solve.py:
+Reads the expansion coefficients K_nlm and scale radius (a) from var.npz (previously computed in init.py to calculate the SCF forces using the basis set of Hernquist and Ostriker (1992).
+- Problem.f
+    - computes forces in cartesian frame for a given array of cartesian coordinates (units should be same as scale radius a). 
+    - converts cartesian coordinates (xyz) into spherical coordinates (sph) in units of a and calls vsforce(sph)
+    - converts the forces back into cartesian coordinates
+    - returns the forces in cartesian coordinates
+- vsforce.py
+    - Given expansion coefficients K_nlm
+    - Given position in spherical coordinates (a=1)
+    - Computes forces
+    - Returns forces in spherical coordinates (a!=1)
+
+(2) classify.py:
+Wrapper to classify orbits given time series of positions and velocities (stored in
+ut_*.hdf5)
+Returns: (N,2) array for all particles: (0) classification; (1) number of periods
+
+(3) common.py:
+Contains routines needed for calculation of:
+    (a) Gegenbauer polynomials
+    (b) Generalized Legendre polynomials
+    (c) Expansion coefficients
+    (d) Conversion between cartesian and spherical coordinates
+    (e) Scale radius
+    (f) Integrator
+    (g) Nbody potential for comparison
+
+(4) taxon2.py
+Classifier from Carpintero and Aguilar modified as a F2PY module and for an
+input of  16384 time steps
+
+############################################################################################
+Change log:
+
+2016 APR 04:
+ (1) Begin conversion of force calculation into C code
+     - Python reads particle positions and exports coefficients as hdf5 file
+     - C code reads coefficients and integrates forces; exports positions and velocities as hdf5 file
+     - Python classifies orbits
+
+2014 OCT 17:
+ (1) ~25% speed up in force calculation from:
+ (2) cfunc.so
+     - Cython compilation of genlegendrediff and gegen functions
+     - Slight speed up of around 10%
+ (3) m loop:
+     - Further pulled computation of Phibar and Phibardiff out of mm loop
+ (4) l loop:
+     - Store cos(m*phi) and sin(m*phi) as an array outside of ll loop to minimize recomputation at the expense of memory comsumption
+ (5) Implementation of simple RK4 routine in addition to the Leapfrog as a check
+
+2014 OCT 15:
+ (1) All loops have been condensed into a single function vsforce
+     - vCDEF no longer in use
+     - This means that factors in Phibar and Phidiff are no longer repeated calculated in loops over n
+ (2) Single array Phi
+     - At the expense of memory, Phibar and Phidiff are now calculated for all relevant n's and condensed into a
+         single array Phi with dimensions of (2,nlim,N)
+     - First index with dimension 2 is used to denote (0) Phibar and (1) Phidiff
+     - N = no. of particles being integrated
+ (3) numpy.einsum
+     - Loops over n are now replaced with numpy.einsum where we have:
+       (a) Phi with dimensions of (2,nlim,N)
+       (b) Expansion coefficients K_nlm with dimension (nlim,llim,llim,2) where the last index refers to the:
+             (0) cosine term, (1) sin term
+     - To get CDEF we multiply Phi and K for fixed l and m and sum over n
+     - H_imk = sum_j Phi_ijk * K_jm with dimenion (2,2,N)
+       (a) 1st index = 0 for Phibar; 1 for Phidiff
+       (b) 2nd index = 0 for cosine term; 1 for sine term
+     - C,D,E,F = H[0,0],H[0,1],H[1,0],H[1,1]
+
+2014 OCT 14:
+ (1) Force calculation sped up by moving redundant calculations involving Phifac out of the loops over n and m.
+ (2) Output is only stored at given intervals, decreasing I/O. Number of
+ outputs to be stored can be specified, and the interval is calculated
+ assuming fixed intervals required for Fourier Transform.
+ TO FIX:
+     (a) Factors in Phidiff still calculated within loops
+     (b) Loop over n slow
+
+2014 SEP:
+ (1) Switched over to leapfrog integrator instead of using RK4 from ODESPY
+ (2) Now uses Pytables to store outputs instead of huge arrays in memory,
+ thus decreasingly memory consumption tremendously
+ TO FIX:
+    (a) Outputs of all steps are being stored -> large amounts of disk I/O.
+    Need to fix this by storing only certain intervals
+
+2014 SEP:
+ (1) Force calculation greatly sped by calculating the ultraspherical
+ harmonics (Gegenbauer polynomials) outside of the n and m loops. (These are
+ independent of m)
+ (2) Gegenbauer polynomials now calculated in common.py instead of using
+ scipy.special_evalgegen. This enables the values for all n up to nlim to be
+ saved simultaneously instead of recaluating for each n. This speeds up the
+ calculation since we do not have to reiterate over many n for each loop. 
+ (3) Problem() no longer manually calculates the coefficient expansions
+ (memory expensive) but reads in the expansions K_nlm and scale radius a from file (var.npz)
+ (4) Coefficient expansion calculation now done as an initialization step in
+ init.py.
+ (5) init.py calculates:
+     - Coefficient expansion K_nlm and scale radius a -> var.npz
+     - Initial positions and velocities in km and km/s for selected particles
+       -> init.npz
+     - Shape parameters and principle axes -> qs.npz
+ (6) No longer requires separate force calculation functions for FP and Dark
+     - Coefficient expansions for FP and Dark calculated separately in init.py
+     - Problem.f will read the corresponding var.npz for FP and Dark and
+       calculate the forces
+     - Need separate integration routine for FP to sum the two forces
+
+2014 APR:
+ (1) Original verision of force calculation
+ (2) Reads in positions and calculates expansion coefficients (slow and
+ redundant)
+ (3) Separate files and calculations for FP and Dark (messy)
+
+
