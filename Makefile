@@ -15,7 +15,7 @@ ifeq ($(CC),cc)
   endif
 endif
 
-LFLAGS += -lgsl -lgslcblas -lhdf5
+LFLAGS += -lgsl -lgslcblas -lhdf5 -lm
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
   #CFLAGS +=-O2 -g -c -w1 -openmp -I${GREAD}

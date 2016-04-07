@@ -2,11 +2,12 @@
 #include <math.h>
 #include <hdf5.h>
 
-int load_hdf5_input(char *filename, struct Indata *var){
+int loadHdf5Input(char *filename, struct Indata *var){
 
     hid_t   hdf_file,hdf_group,hdf_data;
     herr_t  status;
     char    name[150];
+    double  temp[NMAX][LMAX][LMAX][2];
 
     //snprintf(name,150,"%s.hdf5",filename);
     fprintf(stdout,"Reading file %s ...",filename);
@@ -25,7 +26,18 @@ int load_hdf5_input(char *filename, struct Indata *var){
         H5Dclose(hdf_data);
         return -1;
     }
-    status=H5Dread(hdf_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, var->Knlm);
+    //status=H5Dread(hdf_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, var->Knlm);
+    status=H5Dread(hdf_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, temp);
+    for (int n=0; n<NMAX; n++){
+        for (int l=0; l<LMAX; l++){
+            for (int m=0; m<LMAX; m++){
+                var->Knlm[l][m][n][0]=temp[n][l][m][0];
+                var->Knlm[l][m][n][1]=temp[n][l][m][1];
+            }
+        }
+    }
+
+
     
     if ( (hdf_data=H5Dopen2(hdf_file,"/rvir",H5P_DEFAULT)) < 0){
         H5Dclose(hdf_data);

@@ -6,39 +6,22 @@
 int main(){
 
     char filename[150];
-    struct Indata var;
-    double acc[3];
-    //double sph[3];
+    struct Indata infile; //to store coefficients
+    state_type acc(6), sph(6);
+    sph[0]=0.1; sph[1]=-0.2; sph[2]=0.3;
 
-    snprintf(filename,150,"var227.hdf5");
-    load_hdf5_input(filename, &var);
+    snprintf(filename,150,"./var227.hdf5");
+    loadHdf5Input(filename, &infile);
 
-    double sph[3]={0.1,-0.2,0.3};
-    get_acceleration(sph, var, acc);
+    calcAcc ACC (&infile);
+    ACC(sph, acc,sph[0]);
 
     fprintf(stdout,"G=%e\n",GRAVITY);
-    fprintf(stdout,"a=%e\n",var.scalerad);
-    fprintf(stdout,"acc=%e,%e,%e\n",acc[0],acc[1],acc[2]);
+    fprintf(stdout,"a=%e\n",infile.scalerad);
+    fprintf(stdout,"acc=%e,%e,%e,%e,%e,%e\n",acc[0],acc[1],acc[2],acc[3],acc[4],acc[5]);
     fprintf(stdout,"Done!!\n");
 
-
-
-    /*
-    for (int i=0; i<20;i++){
-        for (int j=0; j<10; j++){
-            for (int m=0; m<10; m++){
-                fprintf(stdout,"%d,%d,%d,Knlm=%f,%f\n",
-                        i,j,m,var.Knlm[i][j][m][0],var.Knlm[i][j][m][1]);
-            }
-        }
-    }
-    fprintf(stdout,"Scale radius=%f\n",var.scalerad);
-    fprintf(stdout,"R_200c=%f\n",var.virialrad);
-    */
-
-    //integrate();
     //write_output();
-
 
 return 0;
 }
