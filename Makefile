@@ -15,29 +15,32 @@ ifeq ($(CC),cc)
   endif
 endif
 
-LFLAGS += -lgsl -lgslcblas -lhdf5 -lm
+LFLAGS += -lgsl -lgslcblas -lhdf5 
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  #CFLAGS +=-O2 -g -c -w1 -openmp -I${GREAD}
+  #CFLAGS +=-O3 -g -c -w1
   LINK +=${CXX} #-openmp
 else
   #CFLAGS +=-O2 -g -c -Wall -fopenmp -I${GREAD}
   LINK +=${CXX} #-openmp $(PRO)
 endif
+CXXFLAGS +=${CFLAGS}
 
-objs =  readfile.o accel.o
+OBJS =  readfile.o accel.o
+INCL   = main.h point_type.hpp
 
 
 all:main
 
-main: 	main.o ${objs}
-		${LINK} ${LFLAGS} $^ -o $@
+main: 	main.o $(OBJS)
+		${LINK} ${LFLAGS} $^ -lm -o $@
 
-readfile.o: readfile.cpp main.h
-accel.o:	accel.cpp main.h
-main.o: main.cpp main.h
+#readfile.o: readfile.cpp main.h $(CFLAGS)
+#accel.o:	accel.cpp main.h $(CFLAGS)
+#main.o: main.cpp main.h
+%.o: %.cpp $(INCL) $(CXX) ${CFLAGS} $< -o $@
 
 
 clean: 
-	rm -f main main.o readfile.o
+	rm -f main *.o
 

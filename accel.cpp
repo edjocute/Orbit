@@ -16,12 +16,10 @@ void calcAcc::sphToCart(state_type &x){
 }
 
 /* Converts cartesian coordinates to spherical coordinates */
-void calcAcc::cartToSph(state_type &x){
+inline void calcAcc::cartToSph(state_type &x){
             double r = hypot( hypot(x[0],x[1]), x[2]);
             if (r==0){
-                x[0]=0;
-                x[1]=1e-5;
-                x[2]=1e-5;
+                x[0]=0; x[1]=1e-5; x[2]=1e-5;
             }  
             else{
                 double costheta=x[2]/r;
@@ -33,7 +31,7 @@ void calcAcc::cartToSph(state_type &x){
 }
 
 /* Convert vector in spherical coordinates to cartesian coorinates */
-void calcAcc::cartVec(const state_type x, state_type &vec){
+inline void calcAcc::cartVec(const state_type x, state_type &vec){
     double costheta=x[1];
     double sintheta=sqrt(1-pow(costheta,2));
     double cosphi=cos(x[2]);
@@ -54,8 +52,8 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
     dxdt[0]=x[3]; dxdt[1]=x[4]; dxdt[2]=x[5]; //write velocities into dxdt
 
     state_type pos(3),acc(3);
-    //double ainv=1./var->scalerad;
-    double ainv=1.;
+    double ainv=1./var->scalerad;
+    //double ainv=1.;
     pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
 
     cartToSph(pos); //convert positions to spherical coordinates
@@ -111,8 +109,8 @@ void calcAcc::getSphAcc(const state_type sph, state_type &acc){
     gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE,LLIM,sph[1],-1,legen,legendiff);
 
     /* Start loops over l */
-    fprintf(stdout,"starting loops... \n");
-    for (int ll=0;ll<LLIM;ll++){
+    //fprintf(stdout,"starting loops... \n");
+    for (unsigned int ll=0;ll<LLIM;ll++){
 
         /* Calculate ultraspherical harmonics (Gegenbauer polynomials)
          * in array of length nlim for 0<n<nlim */
@@ -127,13 +125,13 @@ void calcAcc::getSphAcc(const state_type sph, state_type &acc){
             Phidiff[n]=Phifac * ( (8*ll+6)/gsl_pow_2(1+r)*gegenm1[n-1] + (ll/r-(2*ll+1)/(1+r))*gegen[n]);
         }
         
-        for (int mm=0;mm<=ll;mm++){
+        for (unsigned int mm=0;mm<=ll;mm++){
 
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 
              * and sum over n*/
             CDEF[0]=0; CDEF[1]=0; CDEF[2]=0; CDEF[3]=0;
 
-            for (int n=0; n<NLIM; n++){
+            for (unsigned int n=0; n<NLIM; n++){
                 CDEF[0]+=Phi[n]     *var->Knlm[ll][mm][n][0];
                 CDEF[1]+=Phi[n]     *var->Knlm[ll][mm][n][1];
                 CDEF[2]+=Phidiff[n] *var->Knlm[ll][mm][n][0];
@@ -156,6 +154,6 @@ void calcAcc::getSphAcc(const state_type sph, state_type &acc){
     acc[1]*= norm*sintheta/r;
     acc[2]*= norm/(sintheta*r);
 
-    fprintf(stdout,"Loops done\n");
+    //fprintf(stdout,"Loops done\n");
 }
 
