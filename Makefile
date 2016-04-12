@@ -15,16 +15,17 @@ ifeq ($(CC),cc)
   endif
 endif
 
-LFLAGS += -lgsl -lgslcblas -lhdf5 
+LFLAGS += -lgsl -lgslcblas -lhdf5 -lboost_program_options
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  #CFLAGS +=-O3 -g -c -w1
-  LINK +=${CXX} #-openmp
+  CFLAGS +=-O3 -g -c -w1 -openmp
+  LINK +=${CXX} -openmp
 else
   #CFLAGS +=-O2 -g -c -Wall -fopenmp -I${GREAD}
   LINK +=${CXX} #-openmp $(PRO)
 endif
 CXXFLAGS +=${CFLAGS}
+CFLAGS+= -std=c++11
 
 OBJS =  readfile.o accel.o
 INCL   = main.h point_type.hpp
@@ -38,7 +39,7 @@ main: 	main.o $(OBJS)
 #readfile.o: readfile.cpp main.h $(CFLAGS)
 #accel.o:	accel.cpp main.h $(CFLAGS)
 #main.o: main.cpp main.h
-%.o: %.cpp $(INCL) $(CXX) ${CFLAGS} $< -o $@
+%.o: %.cpp $(INCL) ${CXX} ${CFLAGS} $< -o $@
 
 
 clean: 

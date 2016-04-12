@@ -31,7 +31,7 @@ inline void calcAcc::cartToSph(state_type &x){
 }
 
 /* Convert vector in spherical coordinates to cartesian coorinates */
-inline void calcAcc::cartVec(const state_type x, state_type &vec){
+void calcAcc::cartVec(const state_type x, state_type &vec){
     double costheta=x[1];
     double sintheta=sqrt(1-pow(costheta,2));
     double cosphi=cos(x[2]);
@@ -45,29 +45,43 @@ inline void calcAcc::cartVec(const state_type x, state_type &vec){
 }
 
 
+
 /* Wrapper around getSphAcc to return dx/dt=(x',x'') from x=(x,v).
  * Reads and return accelerations in cartesian coordinates
+ * Allows for both 1 and 2 component models
  */
 void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
     dxdt[0]=x[3]; dxdt[1]=x[4]; dxdt[2]=x[5]; //write velocities into dxdt
-
     state_type pos(3),acc(3);
-    double ainv=1./var->scalerad;
-    //double ainv=1.;
-    pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
 
+    /* Calculate acceleration for 1st component (i.e. DM) */
+    double ainv=1./var->scalerad;
+    pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
     cartToSph(pos); //convert positions to spherical coordinates
-    getSphAcc(pos,acc); //calculate acceleration in spherical coordinates
+    getSphAcc(var,pos,acc); //calculate acceleration in spherical coordinates
     cartVec(pos,acc); //convert accelerations to cartesian
     dxdt[3]=acc[0];
     dxdt[4]=acc[1];
     dxdt[5]=acc[2];
+
+    /* Do 2nd component if it exists */
+    if (varfp){
+        acc[0]=0;   acc[1]=0;   acc[2]=0; //reinitialize acc to zeros
+        ainv=1./varfp->scalerad;
+        pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
+        cartToSph(pos);
+        getSphAcc(varfp,pos,acc);
+        cartVec(pos,acc);
+        dxdt[3]+=acc[0];
+        dxdt[4]+=acc[1];
+        dxdt[5]+=acc[2];
+    }
 }
 
 /*Calculates unnormalized accelerations from positions in spherical coordinates
  * Requires normalization by G/a**2
  */
-void calcAcc::getSphAcc(const state_type sph, state_type &acc){
+void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_type &acc){
 
     int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for to Legendre polynomials
     double cosm[LLIM],sinm[LLIM],legen[ndim],legendiff[ndim];
@@ -132,10 +146,10 @@ void calcAcc::getSphAcc(const state_type sph, state_type &acc){
             CDEF[0]=0; CDEF[1]=0; CDEF[2]=0; CDEF[3]=0;
 
             for (unsigned int n=0; n<NLIM; n++){
-                CDEF[0]+=Phi[n]     *var->Knlm[ll][mm][n][0];
-                CDEF[1]+=Phi[n]     *var->Knlm[ll][mm][n][1];
-                CDEF[2]+=Phidiff[n] *var->Knlm[ll][mm][n][0];
-                CDEF[3]+=Phidiff[n] *var->Knlm[ll][mm][n][1];
+                CDEF[0]+=Phi[n]     *Var->Knlm[ll][mm][n][0];
+                CDEF[1]+=Phi[n]     *Var->Knlm[ll][mm][n][1];
+                CDEF[2]+=Phidiff[n] *Var->Knlm[ll][mm][n][0];
+                CDEF[3]+=Phidiff[n] *Var->Knlm[ll][mm][n][1];
                 }
             
             z = ll*(ll+1)/2 +  mm;
@@ -149,7 +163,7 @@ void calcAcc::getSphAcc(const state_type sph, state_type &acc){
     }
 
     /* Normalize the accelerations */
-    double norm=GRAVITY/gsl_pow_2(var->scalerad);
+    double norm=GRAVITY/gsl_pow_2(Var->scalerad);
     acc[0]*= norm;
     acc[1]*= norm*sintheta/r;
     acc[2]*= norm/(sintheta*r);
