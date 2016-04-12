@@ -1,7 +1,7 @@
 //#include "allvar.h"
 #include <vector>
-#include <boost/array.hpp>
-#include <boost/multi_array.hpp>
+//#include <boost/array.hpp>
+//#include <boost/multi_array.hpp>
 #include <iostream>
 
 
@@ -17,7 +17,7 @@
 #define SQRT4PI 3.5449077018110318
 
 typedef std::vector<double> state_type;
-typedef boost::multi_array<double,3> store_array_type;
+//typedef boost::multi_array<double,3> store_array_type;
 
 /* Structure for storing input params from Python init.py*/
 struct Indata {
