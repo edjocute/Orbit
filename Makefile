@@ -21,27 +21,25 @@ ifeq (icc,$(findstring icc,${CC}))
   CFLAGS +=-O3 -g -c -w1 -openmp
   LINK +=${CXX} -openmp
 else
-  #CFLAGS +=-O2 -g -c -Wall -fopenmp -I${GREAD}
-  LINK +=${CXX} #-openmp $(PRO)
+  CFLAGS +=-O2 -g -c -Wall -fopenmp
+  LINK +=${CXX} #$(PRO)
+  LFLAGS += -lm -lgomp
 endif
 CXXFLAGS +=${CFLAGS}
 CFLAGS+= -std=c++11
 
-OBJS =  readfile.o accel.o
+OBJS =  readfile.o accel.o main.o
 INCL   = main.h point_type.hpp
 
 
 all:main
 
-main: 	main.o $(OBJS)
-		${LINK} ${LFLAGS} $^ -lm -o $@
+main: 	$(OBJS) 
+		${LINK} $^ -o $@ ${LFLAGS}
 
-#readfile.o: readfile.cpp main.h $(CFLAGS)
-#accel.o:	accel.cpp main.h $(CFLAGS)
-#main.o: main.cpp main.h
 %.o: %.cpp $(INCL) ${CXX} ${CFLAGS} $< -o $@
 
 
 clean: 
-	rm -f main *.o
+	rm -f main $(OBJS)
 

@@ -17,12 +17,12 @@ typedef runge_kutta_fehlberg78< state_type > stepper_type;
 
 int main( int argc, char* argv[]){
     char *filename;
-    struct Indata infile; //to store coefficients
+    struct Indata infile,infile2; //to store coefficients
     //state_type acc(6), sph(6);
-    const double endTime=1e18;
-    //double dt=std::stod(argv[1]);
-    int nPoints,Npart;//=std::stoi(argv[1]);
-    std::vector<state_type> xinit;
+    //const double endTime=5e18;
+    double endTime;
+    int nPoints,Npart;
+    std::vector<state_type> xinit; //to store array of initial positions and velocities
     //std::vector<state_type> X;
     state_type T;
 
@@ -34,7 +34,8 @@ int main( int argc, char* argv[]){
         ("o,o", po::value<std::string>()->default_value("save.hdf5"),"output file")
         ("n,n", po::value<int>(& nPoints)->default_value(32768),"no. of integration points")
         ("i,i", po::value<std::string>()->default_value("init.hdf5"),"File with initial positions")
-        ("N,N", po::value<int>(), "no. of particles to integrate");
+        ("N,N", po::value<int>(), "no. of particles to integrate")
+        ("e,e", po::value<double>( &endTime)->default_value(5e18), "End time of integration in s");
     po::positional_options_description positionalOptions;
     positionalOptions.add("infile1",1);
     positionalOptions.add("infile2",1);
@@ -42,38 +43,29 @@ int main( int argc, char* argv[]){
     po::variables_map vm;
     po::store(po::command_line_parser(argc,argv).options(desc).positional(positionalOptions).run(),vm);
     po::notify(vm);
-    if ( vm.count("infile2") ){
-        std::cout << "2 coefficient files given, 2 component model assumed\n";
-    }
+
     std::cout << "Output file is: " << vm["o"].as<std::string>() << "\n";
     std::cout << "Npoints=" << nPoints << "\t";
 
     double dt=endTime/nPoints;
     std::cout << "dt=" << dt << '\t' << "endTime=" <<endTime <<'\n';
 
-    //snprintf(filename,150,vm["infile"].as<std::string>());
     filename=strdup(vm["infile1"].as<std::string>().c_str());
     loadHdf5Input(filename, &infile);
-    calcAcc ACC(&infile);
-    /*
+    
+    /* Call either the 1-component or 2-component routine 
+     * based on whether 2nd component input is present
+     */
     if (vm.count("infile2")){
-        //snprintf(filename,150,vm["infile2"].as<std::string>());
-        struct Indata infile2;
+        std::cout << "2 coefficient files given, 2 component model assumed\n";
+        filename=strdup(vm["infile2"].as<std::string>().c_str());
         loadHdf5Input(strdup(vm["infile2"].as<std::string>().c_str()), &infile2);
-        calcAcc ACC(&infile,&infile2);
     }
-    else{
-        calcAcc ACC(&infile);
-    }*/
+    calcAcc ACC = (vm.count("infile2")) ? calcAcc(&infile,&infile2) : calcAcc(&infile);
 
     filename=strdup(vm["i"].as<std::string>().c_str());
     loadHdf5Init(filename, xinit);
-    if (vm.count("N")){
-        Npart=vm["N"].as<int>();
-    }
-    else {
-        Npart=xinit.size();
-    }
+    Npart = (vm.count("N")) ? vm["N"].as<int>() : xinit.size();
     state_type XX(Npart*(nPoints+1)*6);
 
     std::cout << "Num points to integrate = " << Npart << '\n';
@@ -81,7 +73,7 @@ int main( int argc, char* argv[]){
     fprintf(stdout,"a=%e\n",infile.scalerad);
     fprintf(stdout,"X0=%e,%e,%e,%e,%e,%e\n",xinit[0][0],xinit[0][1],xinit[0][2],xinit[0][3],xinit[0][4],xinit[0][5]);
 
-
+    double time1=omp_get_wtime();
     #pragma omp parallel
     {
         if (omp_get_thread_num()==0){
@@ -89,7 +81,7 @@ int main( int argc, char* argv[]){
         }
         //std::vector<state_type> Xpriv;
         //state_type Tpriv;
-        #pragma omp for
+        #pragma omp for schedule(static,2)
         for (int n=0; n<Npart; n++)
         {
             std::vector<state_type> Xpriv;
@@ -97,31 +89,23 @@ int main( int argc, char* argv[]){
             nPoints=integrate_const( stepper_type() , ACC , xinit[n] ,
                 0.0 , endTime, dt , saveStates(Xpriv,Tpriv) );
             
-            #pragma omp critical
-            {
+            //#pragma omp critical
+            //{
             for (int x=0;x<=nPoints; x++)
             {
                 for (int y=0; y<6; y++)
                 {
                     XX[n*6*(nPoints+1)+6*x+y]=Xpriv[x][y];
                 }
-
             }
-            }//end omp critical
-            //
+            //}//end omp critical
             if (n==0) T=Tpriv;
+        }//end omp for
+    }//end omp parallel
+    double time2=omp_get_wtime();
 
-        }//end omp parallel
-
-        /*
-        #pragma omp critical
-        X.insert(X.end(), Xpriv.begin(), Xpriv.end());
-        T.insert(T.end(),Tpriv.begin(),Tpriv.end());
-        */
-    }
-
-    /* Print info to screen for checking */
-    for (int n=0; n<Npart; n++)
+    /* Print some info to screen for checking */
+    for (int n=0; n<10; n++)
     {
         std::cout << n << '\n';
         std::cout << T[0] << '\t' ;
@@ -139,12 +123,11 @@ int main( int argc, char* argv[]){
         std::cout << '\n';
     }
 
-    //snprintf(filename,150,"./save.hdf5");
+    /* Save data to output file */
     filename=strdup(vm["o"].as<std::string>().c_str());
     saveHdf5(filename,XX,T);
-    fprintf(stdout,"Done!!\n");
+    fprintf(stdout,"Done! This took %.4g mins\n", (time2-time1)/60 );
 
     free(filename);
 return 0;
 }
-

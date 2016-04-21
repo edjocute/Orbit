@@ -86,7 +86,7 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
     int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for to Legendre polynomials
     double cosm[LLIM],sinm[LLIM],legen[ndim],legendiff[ndim];
     double gegen[NLIM],gegenm1[NLIM],Phi[NLIM],Phidiff[NLIM];
-    double CDEF[4];
+    double CDEF[4],Phifac,Phidiffac1,Phidiffac2;
     int z;
 
     const double sintheta=sqrt(1-pow(sph[1],2));
@@ -106,7 +106,6 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
     fprintf(stdout,"Scale radius=%f\n",var.scalerad);
     fprintf(stdout,"R_200c=%f\n",var.virialrad);
     */
-
 
     /* Initialize required arrays */
     //acc[0]=0;       acc[1]=0;       acc[2]=0;
@@ -130,17 +129,20 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
          * in array of length nlim for 0<n<nlim */
         gsl_sf_gegenpoly_array(NLIM,2*ll+1.5,xi,gegen);
         gsl_sf_gegenpoly_array(NLIM-1,2*ll+2.5,xi,gegenm1);
-        double Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1+r,2*ll+1);
+        Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1+r,2*ll+1);
+        Phidiffac1 = (8*ll+6)/gsl_pow_2(1+r);
+        Phidiffac2 = (ll/r-(2*ll+1)/(1+r));
 
         Phi[0]=Phifac;
-        Phidiff[0]=Phifac*(ll/r-(2*ll+1)/(1+r));
+        //Phidiff[0]=Phifac*(ll/r-(2*ll+1)/(1+r));
+        Phidiff[0]=Phifac*Phidiffac2;
         for (int n=1; n<NLIM; n++){
             Phi[n]=Phifac*gegen[n];
-            Phidiff[n]=Phifac * ( (8*ll+6)/gsl_pow_2(1+r)*gegenm1[n-1] + (ll/r-(2*ll+1)/(1+r))*gegen[n]);
+            //Phidiff[n]=Phifac * ( (8*ll+6)/gsl_pow_2(1+r)*gegenm1[n-1] + (ll/r-(2*ll+1)/(1+r))*gegen[n]);
+            Phidiff[n]=Phifac* (Phidiffac1*gegenm1[n-1] + Phidiffac2*gegen[n]);
         }
         
         for (unsigned int mm=0;mm<=ll;mm++){
-
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 
              * and sum over n*/
             CDEF[0]=0; CDEF[1]=0; CDEF[2]=0; CDEF[3]=0;
@@ -152,7 +154,7 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
                 CDEF[3]+=Phidiff[n] *Var->Knlm[ll][mm][n][1];
                 }
             
-            z = ll*(ll+1)/2 +  mm;
+            z = (ll*(ll+1))/2 +  mm;
             //fprintf(stdout,"%d,%d,%f,%f\n",ll,mm,legen[z],legendiff[z]);
             acc[0]-= legen[z] * (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);
             acc[1]+= legendiff[z]* (CDEF[0]*cosm[mm] + CDEF[1]*sinm[mm]);
@@ -167,7 +169,5 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
     acc[0]*= norm;
     acc[1]*= norm*sintheta/r;
     acc[2]*= norm/(sintheta*r);
-
-    //fprintf(stdout,"Loops done\n");
 }
 
