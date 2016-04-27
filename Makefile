@@ -18,7 +18,7 @@ endif
 LFLAGS += -lgsl -lgslcblas -lhdf5 -lboost_program_options
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  CFLAGS +=-O3 -g -c -w1 -openmp
+  CFLAGS +=-O3 -g -c -w1 -openmp -xHost
   LINK +=${CXX} -openmp
 else
   CFLAGS +=-O2 -g -c -Wall -fopenmp
@@ -29,7 +29,7 @@ CXXFLAGS +=${CFLAGS}
 CFLAGS+= -std=c++11
 
 OBJS =  readfile.o accel.o main.o
-INCL   = main.h point_type.hpp
+INCL   = main.h
 
 
 all:main

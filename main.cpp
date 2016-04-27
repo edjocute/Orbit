@@ -97,6 +97,7 @@ int main( int argc, char* argv[]){
     if (vm["Firstpass"].as<bool>()){
         for (int n=0; n<Npart; n++){
             endTimeAll[n]=endTime;
+            dtAll[n]=endTime/nPoints;
         }
     }
     else{
@@ -162,7 +163,7 @@ int main( int argc, char* argv[]){
 
 
     /* Print some info to screen for checking */
-    for (int n=0; n<10; n++)
+    for (int n=0; n< ((Npart<10) ? Npart : 10); n++)
     {
         std::cout << n << '\n';
         std::cout << T[n*(savenpoints+1)] << '\t' ;

@@ -5,6 +5,7 @@
 #include <gsl/gsl_math.h>
 #include "main.h"
 
+#define SQRT4PI (2*M_SQRTPI)
 
 /* Converts spherical to cartesian coordinates */
 void calcAcc::sphToCart(state_type &x){
@@ -17,7 +18,7 @@ void calcAcc::sphToCart(state_type &x){
 
 /* Converts cartesian coordinates to spherical coordinates */
 inline void calcAcc::cartToSph(state_type &x){
-            double r = hypot( hypot(x[0],x[1]), x[2]);
+            double r = gsl_hypot3(x[0],x[1],x[2]);
             if (r==0){
                 x[0]=0; x[1]=1e-5; x[2]=1e-5;
             }  
@@ -60,9 +61,7 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
     cartToSph(pos); //convert positions to spherical coordinates
     getSphAcc(var,pos,acc); //calculate acceleration in spherical coordinates
     cartVec(pos,acc); //convert accelerations to cartesian
-    dxdt[3]=acc[0];
-    dxdt[4]=acc[1];
-    dxdt[5]=acc[2];
+    dxdt[3]=acc[0]; dxdt[4]=acc[1]; dxdt[5]=acc[2];
 
     /* Do 2nd component if it exists */
     if (varfp){
@@ -72,9 +71,7 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
         cartToSph(pos);
         getSphAcc(varfp,pos,acc);
         cartVec(pos,acc);
-        dxdt[3]+=acc[0];
-        dxdt[4]+=acc[1];
-        dxdt[5]+=acc[2];
+        dxdt[3]+=acc[0]; dxdt[4]+=acc[1]; dxdt[5]+=acc[2];
     }
 }
 
@@ -117,14 +114,16 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
         Phidiffac1 = (8*ll+6)/gsl_pow_2(1+r);
         Phidiffac2 = (ll/r-(2*ll+1)/(1+r));
 
-        Phi[0]=Phifac;
-        //Phidiff[0]=Phifac*(ll/r-(2*ll+1)/(1+r));
+        //Phi[0]=Phifac;
         Phidiff[0]=Phifac*Phidiffac2;
-        for (int n=1; n<NLIM; n++){
+        /*for (int n=1; n<NLIM; n++){
             Phi[n]=Phifac*gegen[n];
             //Phidiff[n]=Phifac * ( (8*ll+6)/gsl_pow_2(1+r)*gegenm1[n-1] + (ll/r-(2*ll+1)/(1+r))*gegen[n]);
             Phidiff[n]=Phifac* (Phidiffac1*gegenm1[n-1] + Phidiffac2*gegen[n]);
-        }
+        }*/
+        Phi[:]=Phifac*gegen[:];
+        Phidiff[1:NLIM]=Phifac*(Phidiffac1*gegenm1[:] + Phidiffac2*gegen[1:NLIM]);
+
         
         for (unsigned int mm=0;mm<=ll;mm++){
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 

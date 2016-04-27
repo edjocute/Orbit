@@ -2,18 +2,20 @@
 //#include <boost/array.hpp>
 //#include <boost/multi_array.hpp>
 #include <iostream>
+#include <math.h>
 
 
 #ifndef HEADER
 #define HEADER
 
-#define GRAVITY 6.6738e-20*1.989e40
+#define GRAVITY (6.6738e-20*1.989e40)
 #define NLIM    12
 #define LLIM    6
 #define NMAX    16
 #define LMAX    10
 
-#define SQRT4PI 3.5449077018110318
+//#define SQRT4PI   3.5449077018110318
+//#define SQRT4PI     3.544907701811032054596334966682290365595098912244774256427
 
 typedef std::vector<double> state_type;
 
