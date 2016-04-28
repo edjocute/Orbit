@@ -80,11 +80,12 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
  */
 void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_type &acc){
 
-    int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for to Legendre polynomials
+    int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for Legendre polynomials
+    int z; //index for Legendre polynomials
     double cosm[LLIM],sinm[LLIM],legen[ndim],legendiff[ndim];
-    double gegen[NLIM],gegenm1[NLIM],Phi[NLIM],Phidiff[NLIM];
+    double gegen[NLIM] __attribute__((aligned(32))), gegenm1[NLIM]  __attribute__((aligned(32)));
+    double Phi[NLIM]  __attribute__((aligned(32))),Phidiff[NLIM]  __attribute__((aligned(32)));
     double CDEF[4],Phifac,Phidiffac1,Phidiffac2;
-    int z;
 
     const double sintheta=sqrt(1-pow(sph[1],2));
     const double r=sph[0];
@@ -104,15 +105,15 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
 
     /* Start loops over l */
     //fprintf(stdout,"starting loops... \n");
-    for (unsigned int ll=0;ll<LLIM;ll++){
+    for (int ll=0;ll<LLIM;ll++){
 
         /* Calculate ultraspherical harmonics (Gegenbauer polynomials)
          * in array of length nlim for 0<n<nlim */
         gsl_sf_gegenpoly_array(NLIM,2*ll+1.5,xi,gegen);
         gsl_sf_gegenpoly_array(NLIM-1,2*ll+2.5,xi,gegenm1);
-        Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1+r,2*ll+1);
-        Phidiffac1 = (8*ll+6)/gsl_pow_2(1+r);
-        Phidiffac2 = (ll/r-(2*ll+1)/(1+r));
+        Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1.0+r,2*ll+1);
+        Phidiffac1 = (8*ll+6)/gsl_pow_2(1.0+r);
+        Phidiffac2 = (ll/r-(2*ll+1)/(1.0+r));
 
         //Phi[0]=Phifac;
         Phidiff[0]=Phifac*Phidiffac2;
@@ -124,13 +125,14 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
         Phi[:]=Phifac*gegen[:];
         Phidiff[1:NLIM]=Phifac*(Phidiffac1*gegenm1[:] + Phidiffac2*gegen[1:NLIM]);
 
-        
-        for (unsigned int mm=0;mm<=ll;mm++){
+        for (int mm=0;mm<=ll;mm++){
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 
              * and sum over n*/
-            CDEF[0]=0; CDEF[1]=0; CDEF[2]=0; CDEF[3]=0;
+            //CDEF[0]=0; CDEF[1]=0; CDEF[2]=0; CDEF[3]=0;
+            CDEF[:]=0;
 
-            for (unsigned int n=0; n<NLIM; n++){
+            #pragma novector
+            for (int n=0; n<NLIM; n++){
                 CDEF[0]+=Phi[n]     *Var->Knlm[ll][mm][n][0];//C
                 CDEF[1]+=Phi[n]     *Var->Knlm[ll][mm][n][1];//D
                 CDEF[2]+=Phidiff[n] *Var->Knlm[ll][mm][n][0];//E
@@ -139,10 +141,10 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
             
             z = (ll*(ll+1))/2 +  mm;
             //fprintf(stdout,"%d,%d,%f,%f\n",ll,mm,legen[z],legendiff[z]);
-            acc[0]-= legen[z] * (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);
-            acc[1]+= legendiff[z]* (CDEF[0]*cosm[mm] + CDEF[1]*sinm[mm]);
+            acc[0]-= legen[z] *     (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);
+            acc[1]+= legendiff[z]*  (CDEF[0]*cosm[mm] + CDEF[1]*sinm[mm]);
             if (mm!=0){
-            acc[2]-= mm*legen[z]*(CDEF[1]*cosm[mm] - CDEF[0]*sinm[mm]);
+            acc[2]-= mm*legen[z]*   (CDEF[1]*cosm[mm] - CDEF[0]*sinm[mm]);
             }
         }
     }
@@ -201,7 +203,7 @@ void calcAcc::getSphPot(const struct Indata *Var, const state_type sph, double &
     gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE,LLIM,sph[1],-1,legen,legendiff);
 
     /* Start loops over l */
-    for (unsigned int ll=0;ll<LLIM;ll++){
+    for (int ll=0;ll<LLIM;ll++){
 
         /* Calculate ultraspherical harmonics (Gegenbauer polynomials)
          * in array of length nlim for 0<n<nlim */
@@ -213,11 +215,11 @@ void calcAcc::getSphPot(const struct Indata *Var, const state_type sph, double &
             Phi[n]=Phifac*gegen[n];
         }
         
-        for (unsigned int mm=0;mm<=ll;mm++){
+        for (int mm=0;mm<=ll;mm++){
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 
              * and sum over n*/
             C=0; D=0;
-            for (unsigned int n=0; n<NLIM; n++){
+            for (int n=0; n<NLIM; n++){
                 C +=Phi[n]     *Var->Knlm[ll][mm][n][0];
                 D +=Phi[n]     *Var->Knlm[ll][mm][n][1];
             }
