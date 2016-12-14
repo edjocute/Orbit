@@ -1,0 +1,32 @@
+*Compiling instructions for ifortran:
+*f2py --opt=-O3 --f77flags=-xHost  -lifcore -lsvml -m -c  taxon taxon.for
+*
+*----------------------------------------------------------------------
+* This file corresponds to version 16.2 of taxon.for
+*----------------------------------------------------------------------
+* Maximum number of points allowed in an orbit
+      INTEGER nn
+      PARAMETER (nn=16384)
+* Maximum number of lines per spectrum
+      INTEGER maxlin
+      PARAMETER (maxlin=12)
+* Take the Fourier spectra of x + i v (=1) or of x + 0i (=2)
+      INTEGER metodo
+      PARAMETER (metodo=1)
+* Fraction of the max amplitude to keep a line/to be candidate for bf
+      DOUBLE PRECISION frac
+      PARAMETER (frac=2d-2)
+* Fraction of a Fourier slot to compute equality of frequencies
+      DOUBLE PRECISION epsf2,epsf3,epsmin
+      PARAMETER (epsf2=0.1d0,epsf3=0.1d0,epsmin=2d-4)
+* Maximum integer for searching 2D resonances
+      INTEGER ifin2
+      PARAMETER (ifin2=14)
+* Maximum integer for searching 3D resonances
+      INTEGER ifin3
+      PARAMETER (ifin3=12)
+* Maximum integers for searching linear independence
+      INTEGER ifon
+      PARAMETER (ifon=10)
+      INTEGER ifun
+      PARAMETER (ifun=35)
