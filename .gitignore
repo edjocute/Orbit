@@ -1,0 +1,6 @@
+*.hdf5
+*.o
+*.txt
+*.pyc
+*.bac
+*.so
