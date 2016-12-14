@@ -1,13 +1,7 @@
 ### Following Hernquist-Ostriker 1991
-7
 import numpy as np
 from scipy import special
-#import odespy
 import numexpr as ne
-import os.path as path
-#from tempfile import mkdtemp
-#import tables
-#import ode
 #ne.set_num_threads(1)
 
 ##################
@@ -65,7 +59,6 @@ def postosph(pos,mass):
 	pos=cart2sph(pos)
 	return pos,mass
 
-
 def xyzforce(fvec,sph):
 	fxyz=np.empty_like(fvec)
 	costheta=sph[:,1]
@@ -76,8 +69,6 @@ def xyzforce(fvec,sph):
 	fxyz[:,1] = sintheta*sinphi*fvec[:,0] + costheta*sinphi*fvec[:,1] + cosphi*fvec[:,2]
 	fxyz[:,2] = costheta*fvec[:,0] - sintheta*fvec[:,1]
 	return fxyz
-
-
 
 #########################
 ### Special Functions ###
@@ -207,7 +198,7 @@ def Abar_nl(n,l):
 	return 1./I_nl(n,l)
 
 def N_lm(l,m):
-	temp=(2.*l+1.)/(4*np.pi) * np.double(factorial(l-m)/factorial(l+m))
+	temp=(2.*l+1.)/(4*np.pi) * np.double(factorial(l-m))/factorial(l+m)
 	if m==0:
 		return temp
 	elif m!=0:
@@ -240,18 +231,17 @@ def knlm(pos,mass,nlim,llim):
         gegen=gegen_n(nlim,2*ll+1.5,xi)
         for mm in xrange(0,ll+1):
             Plm=genlegendre(ll,mm,pos[:,1])
-            #cosm = np.cos(mm*pos[:,2])
             cosm = ne.evaluate("cos(mm*phi)")
-            #sinm = np.sin(mm*pos[:,2])
             sinm = ne.evaluate("sin(mm*phi)")
             for nn in xrange(nlim):
                 #base= mass*  Plm * phibarfac*special.eval_gegenbauer(nn,2*ll+1.5,xi)
                 base = mass*Plm*phibarfac*gegen[nn]
-                #gegenn=gegen[nn];base = ne.evaluate("mass*Plm*phibarfac*gegenn")
                 abartemp=Abar_nl(nn,ll)*N_lm(ll,mm)
                 K[nn,ll,mm,0]=abartemp*(base * cosm).sum()
                 K[nn,ll,mm,1]=abartemp*(base * sinm).sum()
     return K
+
+
 ###########################################################################################################
 
 
@@ -312,79 +302,3 @@ def getsubhalos(cat,group):
             if (dist <= cat.Group_R_Crit200[group]):
                 count=np.append(count,sub)
     return count
-
-#Solve ODE using ODESPY
-#class Solver():
-#    def __init__(self, problem ,dt, A, T,method='RK4'):
-#        self.problem=problem
-#        self.dt=dt
-#        self.method_class = eval('odespy.'+method)
-#        self.N=int(round(T/dt))
-#        self.A=A
-#        self.T=T
-#        self.method=method
-#
-#    def solve(self):
-#        self.solver=self.method_class(self.problem.f,verbose=1)
-#        self.solver.set_initial_condition(self.A)
-#        time_points=np.linspace(0,self.T, self.N+1)
-#        if self.method=='DormandPrince':
-#            u1,self.t = self.solver.solve(self.dt)
-#        else:
-#            u1,self.t = self.solver.solve(time_points)
-#        self.u = u1.reshape(u1.shape[0],u1.shape[1]/6,6)
-#        return self.u,self.t
-#
-#class Integrate():
-#    def __init__(self, filename,problem, dt, A, T, Npoints=16384,method='Leapfrog'):
-#        self.filename=filename
-#        self.problem=problem
-#        self.method=method
-#        self.method_class=eval('ode.'+method)
-#        self.dt=dt
-#        self.N=int(round(T/dt))+1
-#        self.A=A.reshape((len(A)/6,6))
-#        self.T=T
-#        if Npoints == -1:
-#            self.Npoints=self.N
-#        else:
-#            self.Npoints=Npoints
-#        print 'Total steps to be taken = ',self.N
-#        print 'Total output steps to be saved = ',self.Npoints
-#
-#    def solve(self):
-#        #print 'Beginning Leapfrog KDK integrator'
-#        dt=self.dt
-#        dt2=dt/2
-#        interval=int((self.N-1)/(self.Npoints-1))
-#        f=tables.openFile(self.filename,'w')
-#        x=f.createCArray("/","x",tables.Float64Col(),(self.Npoints,len(self.A),3))
-#        v=f.createCArray("/","v",tables.Float64Col(),(self.Npoints,len(self.A),3))
-#        t=f.createCArray("/","t",tables.Float64Col(),(self.Npoints,1))
-#        r=f.createCArray("/","r",tables.Float64Col(),(1,len(self.A)))
-#
-#        ## Initial positions and velocities
-#        t[0]=0.
-#        x[0]=self.A[:,:3]
-#        v[0]=self.A[:,3:]
-#        acc=self.problem.acc(x[0])
-#        xx,vv,tt=x[0],v[0],t[0]
-#
-#        ## Begin integration
-#        for i in xrange(1,self.N):
-#            tt+=dt
-#            vt=vv+acc*dt2
-#            xx+=vt*dt
-#            acc=self.problem.acc(xx)
-#            vv=vt+acc*dt2
-#            if np.mod(i,interval)==0:   ## Write to array (file) at specified interval
-#                ii=int(i/interval)
-#                if ii < self.Npoints:
-#                    x[ii],v[ii],t[ii]=xx,vv,tt
-#
-#        ## Calculate energy conservation
-#        Ei=0.5*( (v[0]**2).sum(axis=-1)) + self.problem.potential(x[0])[:,0]
-#        Ef=0.5*( (v[-1]**2).sum(axis=-1)) + self.problem.potential(x[-1])[:,0]
-#        r[:]=Ei/Ef-1.
-#        f.close()
-#        return 1
