@@ -1,0 +1,12 @@
+cython cfunc.pyx
+gcc -c -fPIC -I/n/sw/fasrcsw/apps/Core/Anaconda/2.1.0-fasrc01/x/include/python2.7/ cfunc.c
+gcc -shared cfunc.o -o cfunc.so
+
+
+import solve
+var=solve.Problem('var227')
+
+init=np.load("init.npz")
+pos=solve.cart2sph(init['pos'][0]/var.a)
+solve.xyzforce(solve.vsforce(var,pos),pos)
+
