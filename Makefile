@@ -39,7 +39,6 @@ main: 	$(OBJS)
 
 %.o: %.cpp $(INCL) ${CXX} ${CFLAGS} $< -o $@
 
-
 clean: 
 	rm -f main $(OBJS)
 
