@@ -1,0 +1,7 @@
+gcc:
+f2py -m -c taxon taxon.py
+
+ifortran:
+f2py --opt=O3 -lifcore -lsvml -m -c  taxon taxon.for
+f2py --opt=-O3 --f77flags=-xHost  -lifcore -lsvml -m -c  taxon taxon.for
+

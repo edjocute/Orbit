@@ -1,6 +1,3 @@
-*Compiling instructions for ifortran:
-*f2py --opt=-O3 --f77flags=-xHost  -lifcore -lsvml -m -c  taxon taxon.for
-*
 *----------------------------------------------------------------------
 * This file corresponds to version 16.2 of taxon.for
 *----------------------------------------------------------------------
@@ -24,7 +21,7 @@
       PARAMETER (ifin2=14)
 * Maximum integer for searching 3D resonances
       INTEGER ifin3
-      PARAMETER (ifin3=14)
+      PARAMETER (ifin3=12)
 * Maximum integers for searching linear independence
       INTEGER ifon
       PARAMETER (ifon=10)
