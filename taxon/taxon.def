@@ -24,7 +24,7 @@
       PARAMETER (ifin2=14)
 * Maximum integer for searching 3D resonances
       INTEGER ifin3
-      PARAMETER (ifin3=12)
+      PARAMETER (ifin3=14)
 * Maximum integers for searching linear independence
       INTEGER ifon
       PARAMETER (ifon=10)
