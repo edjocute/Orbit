@@ -9,7 +9,8 @@ import common
 import tables
 import snapshot
 import random as rand
-import axial_ratios as ar
+#import axial_ratios as ar
+import ellipsoid as ell
 import conversions
 
 kpc=3.08568e+16 #km
@@ -85,28 +86,43 @@ class Init:
                 f.create_carray("/","IDs",tables.UInt64Col(),(15*numpart,))
                 f.root.IDs[:]=partdata["ParticleIDs"][temp]
 
-    def getrotmat(self,groupid,saving=True):
-        print self.catdir,groupid
-        q,s,n,rotmat=ar.axial(self.cat,self.catdir,self.snapnum,groupid,2,rmin=0.02,rmax=0.5)
-        if saving==True:
-            with tables.open_file(self.savedir+'shape.hdf5','w') as f:
-                f.create_carray("/","qs",tables.Float64Col(),(len(q),2))
-                f.create_carray("/","rotmat",tables.Float64Col(),(len(q),3,3))
-                f.create_carray("/","Rvir",tables.Float64Atom(),(1,))
-                f.create_carray("/","Mvir",tables.Float64Atom(),(1,))
-                f.root.qs[:,0]=q
-                f.root.qs[:,1]=s
-                f.root.rotmat[:]=rotmat
-                f.root.Rvir[:]=self.cat.Group_R_Crit200[groupid]
-                f.root.Mvir[:]=self.cat.Group_M_Crit200[groupid]
-        return rotmat
+    def getrotmat(self,partdata,partdata2=False,saving=True):
+        #print self.catdir,groupid
+        #q,s,n,rotmat=ar.axial(self.cat,self.catdir,self.snapnum,groupid,2,rmin=0.02,rmax=0.5)
+
+        Rvir=self.cat.Group_R_Crit200[partdata["groupid"]]
+        pos=partdata["Coordinates"]
+        mass=partdata["Masses"]
+
+        if partdata2:
+            pos=np.vstack((partdata["Coordinates"],partdata2["Coordinates"]))
+            mass=np.hstack((partdata["Masses"],partdata2["Masses"]))
+        pos=pos/partdata["rvir"]
+
+        if mass.std()==0:
+            mass=np.array(False)
+
+        with tables.open_file(self.savedir+'shape.hdf5','w') as f:
+            qs=f.create_carray("/","qs",tables.Float64Col(),(6,2))
+            rotmat=f.create_carray("/","rotmat",tables.Float64Col(),(6,3,3))
+            f.create_carray("/","Rvir",tables.Float64Atom(),(1,))
+            f.create_carray("/","Mvir",tables.Float64Atom(),(1,))
+            f.root.Rvir[:]=Rvir
+            f.root.Mvir[:]=self.cat.Group_M_Crit200[partdata["groupid"]]
+
+            #qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0.1337,0.1683,mass)
+            qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0.4456,0.5610,mass)
+            #qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0.8912,1.1220,mass)
+
+            #qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0,0.1683,mass,weighted=True)
+            #qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0,0.5610,mass,weighted=True)
+            #qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0,1.1220,mass,weighted=True)
 
     #loadHalo(basePath,snapNum,id,partType,fields=None)
     def loadandwriteDM(self,groupid):
         cat=self.cat
         grouppos=cat.GroupPos[groupid]
         groupvel=cat.SubhaloVel[cat.GroupFirstSub[groupid]]
-        rotmat=self.getrotmat(groupid,saving=True)[1]
 
         if self.savepartids==True:
             self.fields[1]=self.fields[1]+["ParticleIDs"]
@@ -123,6 +139,9 @@ class Init:
             print "Cant find DM or FP!"
         part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         part["groupid"]=groupid
+
+        #Get rotation matrices
+        self.getrotmat(part)
 
         #Rotate particles if needed:
         if self.RotateParticles==True:
