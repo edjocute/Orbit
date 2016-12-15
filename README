@@ -1,25 +1,35 @@
-Readme for force calculation 
+Author: Kunting Eddie Chua
+email: kchua@cfa.harvard.edu
 
-(1) solve.py:
-Reads the expansion coefficients K_nlm and scale radius (a) from var.npz (previously computed in init.py to calculate the SCF forces using the basis set of Hernquist and Ostriker (1992).
-- Problem.f
-    - computes forces in cartesian frame for a given array of cartesian coordinates (units should be same as scale radius a). 
-    - converts cartesian coordinates (xyz) into spherical coordinates (sph) in units of a and calls vsforce(sph)
-    - converts the forces back into cartesian coordinates
-    - returns the forces in cartesian coordinates
-- vsforce.py
-    - Given expansion coefficients K_nlm
-    - Given position in spherical coordinates (a=1)
-    - Computes forces
-    - Returns forces in spherical coordinates (a!=1)
+Program which
+(1) Find self-consistent field (SCF) potentials of halos using basis set of Hernquist and Ostriker (1992).
+(2) Integrate accelerations to find particle orbits
+(3) Classify orbits using Capintero and Aguilar (1998) routine.
 
-(2) classify.py:
-Wrapper to classify orbits given time series of positions and velocities (stored in
+Key Files:
+-- init.py -- 
+    Calculates the SCF expansion coefficients Knlm and saves initial particle positions for integration
+    1. Uses central subhalo by default, ignoring subhalos
+    2. Also calculates and used shape at 0.50Rvir (shell)
+    3. Creates 1 file (var.hdf5) for DMO and 2 files for FP (hot and cold components)
+
+-- main.cpp -- 
+    Calculates accelerations from SCF coefficients Knlm and integrates the orbits
+    1. Uses a two step procedure to estimate integration time for each particle
+    2. Requires:
+        - infile1, infile2 (optional, for FP)
+        - i: initial positions
+        - Firstpass: first or second pass
+    3. Returns:
+        - o: output file
+
+-- classify.py --
+    Wrapper to classify orbits given time series of positions and velocities (stored in
 ut_*.hdf5)
-Returns: (N,2) array for all particles: (0) classification; (1) number of periods
+    Returns: (N,2) array for all particles: (0) classification; (1) number of periods
 
-(3) common.py:
-Contains routines needed for calculation of:
+-- common.py --
+    Contains routines needed for calculation of:
     (a) Gegenbauer polynomials
     (b) Generalized Legendre polynomials
     (c) Expansion coefficients
@@ -28,9 +38,9 @@ Contains routines needed for calculation of:
     (f) Integrator
     (g) Nbody potential for comparison
 
-(4) taxon2.py
-Classifier from Carpintero and Aguilar modified as a F2PY module and for an
-input of  16384 time steps
+-- taxon2.so --
+    Classifier from Carpintero and Aguilar modified as a F2PY module and for an
+input of 16384 time steps
 
 ############################################################################################
 Change log:
