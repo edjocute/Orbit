@@ -20,7 +20,8 @@ fields={1:["Coordinates","Velocities"],4:["Coordinates","Velocities","Masses"],\
 keysel=["Group_M_Crit200","Group_R_Crit200","GroupFirstSub","GroupPos","SubhaloVel",           "SubhaloPos"]
 
 class Init:
-    def __init__(self,catdir,savedir='./',snapnum=135,savepartids=False,RotateParticles=False):
+    def __init__(self,catdir,savedir='./',snapnum=135,savepartids=False,\
+            GetRotMat=True,RotateParticles=False,GetCoef=True):
         self.catdir=catdir
         self.snapnum=snapnum
         self.savedir=savedir
@@ -29,6 +30,8 @@ class Init:
         #self.rvir=self.cat.Group_R_Crit200[groupid]/h*kpc
         self.savepartids=savepartids
         self.RotateParticles=RotateParticles
+        self.GetRotMat=GetRotMat
+        self.GetCoef=GetCoef
 
         self.fields={1:["Coordinates","Velocities"],4:["Coordinates","Velocities","Masses"],\
         0:["Coordinates","InternalEnergy","Masses","ElectronAbundance"]}
@@ -86,17 +89,13 @@ class Init:
                 f.create_carray("/","IDs",tables.UInt64Col(),(15*numpart,))
                 f.root.IDs[:]=partdata["ParticleIDs"][temp]
 
-    def getrotmat(self,partdata,partdata2=False,saving=True):
+    def getrotmat(self,partdata,saving=True):
         #print self.catdir,groupid
         #q,s,n,rotmat=ar.axial(self.cat,self.catdir,self.snapnum,groupid,2,rmin=0.02,rmax=0.5)
 
         Rvir=self.cat.Group_R_Crit200[partdata["groupid"]]
         pos=partdata["Coordinates"]
         mass=partdata["Masses"]
-
-        if partdata2:
-            pos=np.vstack((partdata["Coordinates"],partdata2["Coordinates"]))
-            mass=np.hstack((partdata["Masses"],partdata2["Masses"]))
         pos=pos/partdata["rvir"]
 
         if mass.std()==0:
@@ -110,13 +109,13 @@ class Init:
             f.root.Rvir[:]=Rvir
             f.root.Mvir[:]=self.cat.Group_M_Crit200[partdata["groupid"]]
 
-            #qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0.1337,0.1683,mass)
+            qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0.1337,0.1683,mass)
             qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0.4456,0.5610,mass)
-            #qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0.8912,1.1220,mass)
+            qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0.8912,1.1220,mass)
 
-            #qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0,0.1683,mass,weighted=True)
-            #qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0,0.5610,mass,weighted=True)
-            #qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0,1.1220,mass,weighted=True)
+            qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0,0.1683,mass,weighted=True)
+            qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0,0.5610,mass,weighted=True)
+            qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0,1.1220,mass,weighted=True)
 
     #loadHalo(basePath,snapNum,id,partType,fields=None)
     def loadandwriteDM(self,groupid):
@@ -141,7 +140,8 @@ class Init:
         part["groupid"]=groupid
 
         #Get rotation matrices
-        self.getrotmat(part)
+        if self.GetRotMat==True:
+            self.getrotmat(part)
 
         #Rotate particles if needed:
         if self.RotateParticles==True:
@@ -149,59 +149,66 @@ class Init:
             part["Velocities"]=(np.dot(part["Velocities"],rotmat))#.reshape(nn,N,3)
 
         #Get test particles
-        self.getinit(part,100,'init.hdf5')
+        if self.GetInit:
+            self.getinit(part,100,'init.hdf5')
 
         #Get Knlm
-        return self.getK(part,self.savedir+'var.hdf5')
+        if self.GetCoef:
+            self.getK(part,self.savedir+'var.hdf5')
 
-    def loadandwriteFP(self,component,groupid):
+    def loadandwriteFP(self,groupid):
         cat=self.cat
         grouppos=cat.GroupPos[groupid]
         groupvel=cat.SubhaloVel[cat.GroupFirstSub[groupid]]
         subid=cat.GroupFirstSub[groupid]
-        rotmat=self.getrotmat(groupid,saving=True)[1]
 
-        if component=='hot':
-            savefile=self.savedir+'varh.hdf5'
-            parttype=1
-        elif component=='cold':
-            savefile=self.savedir+'varc.hdf5'
-            parttype=4
-        part1=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,parttype,self.fields[parttype])
+        part1=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,1,self.fields[1])
         part1["Coordinates"]=(common.image(grouppos,part1["Coordinates"],75000)-grouppos)/h*kpc
         part1["Velocities"]=part1["Velocities"]-groupvel
+        part1["Masses"]=np.ones(part1["count"])*0.00044089652436109581/h
 
-        partgas=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,0,self.field[0])
-        gastemp=conversions.GetTemp(partgas["InternalEnergy"],partgas["ElectronAbundance"],5./3.)
-        if component=='hot':
-            sel=gastemp>=1e5
-        elif component=='cold':
-            self=gastemp<=1e5
-        partgas["Coordinates"]=(common.image(grouppos,partgas["Coordinates"][sel],75000)-grouppos)/h*kpc
-        partgas["Masses"]=partgas["Masses"][sel]/h
+        part4=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,4,self.fields[4])
+        part4["Coordinates"]=(common.image(grouppos,part4["Coordinates"],75000)-grouppos)/h*kpc
+        part4["Velocities"]=part4["Velocities"]-groupvel
+        part4["Masses"]=part4["Masses"]/h
+
+        part0=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,0,self.field[0])
+        part0["Coordinates"]=(common.image(grouppos,part0["Coordinates"],75000)-grouppos)/h*kpc
+        part0["Masses"]=partgas["Masses"]/h
+        gastemp=conversions.GetTemp(part0["InternalEnergy"],part0["ElectronAbundance"],5./3.)
+        selh=gastemp>=1e5
+        selc=gastemp<=1e5
+
+        part={}
+        part["Coordinates"]=np.vstack((part1["Coordinates"],part4["Coordinates"],part0["Coordinates"]))
+        part["Masses"]=np.hstack((part1["Masses"],part4["Masses"],part0["Masses"]))
+        part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
+        part["groupid"]=groupid
+        self.getrotmat(part)
 
         #Rotate particles if needed:
         if self.RotateParticles==True:
             part1["Coordinates"]=(np.dot(part1["Coordinates"],rotmat))#.reshape(nn,N,3)
             part1["Velocities"]=(np.dot(part1["Velocities"],rotmat))#.reshape(nn,N,3)
-            partgas["Coordinates"]=(np.dot(partgas["Coordinates"],rotmat))#.reshape(nn,N,3)
-            partgas["Velocities"]=(np.dot(partgas["Velocities"],rotmat))#.reshape(nn,N,3)
+            part4["Coordinates"]=(np.dot(part4["Coordinates"],rotmat))#.reshape(nn,N,3)
+            part4["Velocities"]=(np.dot(part4["Velocities"],rotmat))#.reshape(nn,N,3)
+            part0["Coordinates"]=(np.dot(part0["Coordinates"],rotmat))#.reshape(nn,N,3)
 
         #Save test particles:
-        if component=='hot':
-            part1["Masses"]=np.ones(part1["count"])*0.00044089652436109581/h
+        if self.GetInit:
             self.getinit(part1,100,'initdm.hdf5')
-        elif component=='cold':
-            self.getinit(part1,100,'initstar.hdf5')
+        #elif component=='cold':
+        #    self.getinit(part1,100,'initstar.hdf5')
 
         #Save Knlm:
-        part={}
-        part["Coordinates"]=np.vstack((part1["Coordinates"],partgas["Coordinates"]))
-        part["Masses"]=np.hstack((part1["Masses"],partgas["Masses"]))
-        part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
-        part["groupid"]=groupid
-        self.getK(part,savefile)
+        if self.GetCoef:
+            part["Coordinates"]=np.vstack((part1["Coordinates"],partgas["Coordinates"][selh]))
+            part["Masses"]=np.hstack((part1["Masses"],partgas["Masses"][selh]))
+            self.getK(part,self.savedir+'varh.hdf5')
 
+            part["Coordinates"]=np.vstack((part4["Coordinates"],partgas["Coordinates"][selc]))
+            part["Masses"]=np.hstack((part4["Masses"],partgas["Masses"][selc]))
+            self.getK(part,self.savedir+'varc.hdf5')
 #catdir='/n/hernquistfs2/Illustris/Runs/L75n1820DM/output/'
 #List=[879]
 

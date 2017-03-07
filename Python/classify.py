@@ -5,13 +5,13 @@ import ctypes
 from functools import partial
 import os,sys
 sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/taxon')
-#import taxon
+import taxon
 #import taxonopt
 #import taxon32768
 #import taxon8192
 #import taxon2
 #import taxon4
-import taxon6
+#import taxon6
 #import solve
 import matplotlib.pyplot as plt
 import sharedmem
@@ -20,11 +20,13 @@ Myr = 3.15569e16 #s
 kpc=3.08568e+16 #km
 h=0.704
 
-def classall(infile,outfile='classout.hdf5',components=1,npoints=16384,nn=16384,end=False):
+def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn=16384,end=False):
     sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/Python')
     import solve
     ## N = no. of particles in each bin
     ## nn = no. of points to be used in classification
+    with tables.open_file('shape.hdf5','r') as rotfile:
+        rotmat=rotfile.root.rotmat[rotation]
     with tables.open_file(infile,'r') as u:
         #t=u.root.t[:]/Myr
         npart=u.root.x.shape[0]/(npoints+1)/6
@@ -89,6 +91,8 @@ def classall(infile,outfile='classout.hdf5',components=1,npoints=16384,nn=16384,
         t=sharedmem.copy(t[:,::interval][:,:nn])
         x=x[:,::interval][:,:nn]
         v=v[:,::interval][:,:nn]
+        x=np.dot(x,rotmat)
+        v=np.dot(v,rotmat)
         # Use 8 threads
         #pool=Pool(8)
         with sharedmem.MapReduce() as pool:
@@ -111,7 +115,7 @@ def calcclass(i,t,x,v,nn):
         out=taxon32768.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
     elif nn==16384:
         #out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
-        out=taxon6.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+        out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
     elif nn==8192:
         out=taxon8192.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
     return out

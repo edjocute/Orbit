@@ -7,10 +7,10 @@ sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/python')
 import classify
 
 #plt.interactive(False)
-def intclass(filedir,components,doclass=True,makeplot=False):
+def intclass(filedir,components,rotation,doclass=True,makeplot=False):
     if doclass:
-        classify.classall(filedir+'/save_temp.hdf5',filedir+'/classout_temp.hdf5',npoints=16384,\
-                components=components)
+        classify.classall(filedir+'/save_temp.hdf5',components,rotation, \
+                outfile=filedir+'/classout_temp.hdf5',npoints=16384)
 
     with tables.open_file(filedir+'/classout_temp.hdf5','r') as f:
         E=f.root.totE[:,0]
@@ -48,9 +48,9 @@ def intclass(filedir,components,doclass=True,makeplot=False):
 
             fig.savefig(filedir+'/intermediate_results.pdf',bbox_true=True)
 
-def finclass(filedir,components,makeplot=False):
-    classify.classall(filedir+'/save.hdf5',filedir+'/classout.hdf5',npoints=16384,\
-            components=components)
+def finclass(filedir,components,rotation,makeplot=False):
+    classify.classall(filedir+'/save.hdf5',components,rotation,\
+            outfile=filedir+'/classout.hdf5',npoints=16384)
 
 def plotsingle(filedir):
     if filedir[-5:]=='.hdf5':
@@ -82,7 +82,7 @@ def plotsingle(filedir):
         fig.tight_layout()
         #fig.savefig(filedir+'/check_results.pdf',bbox_true=True)
 
-def plotall(filedir,whichdist,nbins=10,components=1):
+def plotall(filedir,whichdist,nbins=10,components=1,filename='classout.hdf5',ls='-',ploterr=False):
     import glob
     per=np.percentile
     allgroups=glob.glob(filedir+'/GROUP_*/')
@@ -100,7 +100,7 @@ def plotall(filedir,whichdist,nbins=10,components=1):
             varfile='varh.hdf5'
         with tables.open_file(dirt+varfile,'r') as var:
             rvir=var.root.Rvir[:]/classify.h*classify.kpc
-        with tables.open_file(dirt+'/classout.hdf5','r') as f:
+        with tables.open_file(dirt+'/'+filename,'r') as f:
             dist=f.root.avgdist[:,whichdist]/rvir
             C=f.root.classification[:]
 
@@ -117,17 +117,17 @@ def plotall(filedir,whichdist,nbins=10,components=1):
 
     #print allbox
     plt.figure()
-    plt.semilogx(x,np.median(allbox,axis=0),'k-')
-    plt.semilogx(x,np.median(alltube,axis=0),'b-')
-    plt.semilogx(x,np.median(allirr,axis=0),'r-')
+    plt.semilogx(x,np.median(allbox,axis=0),c='k',ls=ls)
+    plt.semilogx(x,np.median(alltube,axis=0),c='b',ls=ls)
+    plt.semilogx(x,np.median(allirr,axis=0),c='r',ls=ls)
 
     plt.legend(['Box','Tube','Irr'],loc=2)
 
-    plt.fill_between(x,per(allbox,25,axis=0),per(allbox,75,axis=0),color='k',alpha=0.1)
-    plt.fill_between(x,per(alltube,25,axis=0),per(alltube,75,axis=0),color='b',alpha=0.1)
-    plt.fill_between(x,per(allirr,25,axis=0),per(allirr,75,axis=0),color='r',alpha=0.1)
-
-    plt.axvline(0.5,c='k',ls='--')
+    if ploterr==True:
+        plt.fill_between(x,per(allbox,25,axis=0),per(allbox,75,axis=0),color='k',alpha=0.1)
+        plt.fill_between(x,per(alltube,25,axis=0),per(alltube,75,axis=0),color='b',alpha=0.1)
+        plt.fill_between(x,per(allirr,25,axis=0),per(allirr,75,axis=0),color='r',alpha=0.1)
+    #plt.axvline(0.5,c='k',ls='--')
     plt.xlabel(r'$r/R_{200}$')
     plt.ylabel('Orbit Fraction')
 
@@ -137,26 +137,28 @@ if __name__ == "__main__":
     step=''
     c=1
     try:
-        opts, args = getopt.getopt(sys.argv[1:],"hs:c:",["step=","components="])
+        opts, args = getopt.getopt(sys.argv[1:],"hs:c:r:",["step=","components=","rotation="])
     except getopt.GetoptError:
-        print 'intermediate.py -s first/second -c 1/2 <i/o dir>'
+        print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r #'
         sys.exit(2)
     for opt,arg in opts:
         if opt == '-h':
-            print 'intermediate.py -s first/second -c 1/2 <i/o dir>'
+            print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r #'
             sys.exit()
         elif opt in ("-s", "--step"):
             step = arg
         elif opt in ("-c", "--components"):
             c=int(arg)
             print "no. of components = ",c
+        elif opt in ("-r", "--rotation"):
+            r=int(arg)
 
     dir = args[0]
 
     if step == 'first':
-        intclass(dir,c,doclass=True,makeplot=True)
+        intclass(dir,c,r,doclass=True,makeplot=True)
     elif step == 'second':
-        finclass(dir,c)
+        finclass(dir,c,r)
     elif step == 'plotall':
         plotall(dir,whichdist=1,nbins=15,components=c)
     elif step =='plotsingle':
