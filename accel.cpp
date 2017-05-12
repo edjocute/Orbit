@@ -80,16 +80,17 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
  */
 void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_type &acc){
 
-    int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for Legendre polynomials
+    //int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for Legendre polynomials
+    //size_t ndim=gsl_sf_legendre_array_n(LLIM);
     int z; //index for Legendre polynomials
-    double cosm[LLIM],sinm[LLIM],legen[ndim],legendiff[ndim];
+    double cosm[LLIM],sinm[LLIM],legen[NDIM],legendiff[NDIM];
     double gegen[NLIM] __attribute__((aligned(32))), gegenm1[NLIM]  __attribute__((aligned(32)));
     double Phi[NLIM]  __attribute__((aligned(32))),Phidiff[NLIM]  __attribute__((aligned(32)));
     double CDEF[4],Phifac,Phidiffac1,Phidiffac2;
 
-    const double sintheta=sqrt(1-pow(sph[1],2));
+    const double sintheta=sqrt(1.-gsl_pow_2(sph[1]));
     const double r=sph[0];
-    const double xi=(r-1)/(r+1);
+    const double xi=(r-1.)/(r+1.);
 
     /* Initialize required arrays */
     for (int m=0;m<LLIM;m++){
@@ -104,7 +105,6 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
     gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE,LLIM,sph[1],-1,legen,legendiff);
 
     /* Start loops over l */
-    //fprintf(stdout,"starting loops... \n");
     for (int ll=0;ll<LLIM;ll++){
 
         /* Calculate ultraspherical harmonics (Gegenbauer polynomials)
@@ -140,7 +140,6 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
                 }
             
             z = (ll*(ll+1))/2 +  mm;
-            //fprintf(stdout,"%d,%d,%f,%f\n",ll,mm,legen[z],legendiff[z]);
             acc[0]-= legen[z] *     (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);
             acc[1]+= legendiff[z]*  (CDEF[0]*cosm[mm] + CDEF[1]*sinm[mm]);
             if (mm!=0){
@@ -179,15 +178,15 @@ void calcAcc::getPotential(const state_type x, double &pot){
 }
 
 void calcAcc::getSphPot(const struct Indata *Var, const state_type sph, double &pot){
-    int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for to Legendre polynomials
-    double cosm[LLIM],sinm[LLIM],legen[ndim],legendiff[ndim];
+    //int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for to Legendre polynomials
+    double cosm[LLIM],sinm[LLIM],legen[NDIM],legendiff[NDIM];
     double gegen[NLIM],Phi[NLIM];
     double C,D,Phifac;
     int z;
 
-    const double sintheta=sqrt(1-pow(sph[1],2));
+    const double sintheta=sqrt(1.-gsl_pow_2(sph[1]));
     const double r=sph[0];
-    const double xi=(r-1)/(r+1);
+    const double xi=(r-1.)/(r+1.);
 
     /* Initialize required arrays */
     pot=0;
@@ -211,9 +210,10 @@ void calcAcc::getSphPot(const struct Indata *Var, const state_type sph, double &
         Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1+r,2*ll+1);
 
         Phi[0]=Phifac;
-        for (int n=1; n<NLIM; n++){
+        Phi[1:NLIM]=Phifac*gegen[1:NLIM];
+        /*for (int n=1; n<NLIM; n++){
             Phi[n]=Phifac*gegen[n];
-        }
+        }*/
         
         for (int mm=0;mm<=ll;mm++){
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 

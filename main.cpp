@@ -74,6 +74,7 @@ int main( int argc, char* argv[]){
     Npart = (vm.count("N")) ? vm["N"].as<int>() : xinit.size();
 
     /* Print some info */
+    std::cout << "NLIM,LLIM,NDIM=" << NLIM <<","<< LLIM << "," << NDIM << "\n";
     std::cout << "G="<< GRAVITY << "\n" << "\n";
     //fprintf(stdout,"a=%e\n",infile.scalerad);
     //fprintf(stdout,"X0=%e,%e,%e,%e,%e,%e\n",xinit[0][0],xinit[0][1],xinit[0][2],xinit[0][3],xinit[0][4],xinit[0][5]);
