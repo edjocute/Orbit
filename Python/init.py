@@ -9,6 +9,7 @@ import common
 import tables
 import snapshot
 import random as rand
+import numexpr as ne
 #import axial_ratios as ar
 import ellipsoid as ell
 import conversions
@@ -20,11 +21,10 @@ fields={1:["Coordinates","Velocities"],4:["Coordinates","Velocities","Masses"],\
 keysel=["Group_M_Crit200","Group_R_Crit200","GroupFirstSub","GroupPos","SubhaloVel",           "SubhaloPos"]
 
 class Init:
-    def __init__(self,catdir,savedir='./',snapnum=135,savepartids=False,\
-            GetRotMat=True,RotateParticles=False,GetCoef=True):
+    def __init__(self,catdir,snapnum=135,savepartids=False,\
+            GetRotMat=True,RotateParticles=False,GetCoef=True,GetInit=True):
         self.catdir=catdir
         self.snapnum=snapnum
-        self.savedir=savedir
 
         self.cat=readsubfHDF5.subfind_catalog(catdir,snapnum,keysel=keysel)
         #self.rvir=self.cat.Group_R_Crit200[groupid]/h*kpc
@@ -32,32 +32,36 @@ class Init:
         self.RotateParticles=RotateParticles
         self.GetRotMat=GetRotMat
         self.GetCoef=GetCoef
+        self.GetInit=GetInit
+
+        print 'You have chosen the following:'
+        if self.RotateParticles: print 'Rotate particles using ',self.RotateParticles
+        if self.GetRotMat: print 'Save rotmat'
+        if self.GetCoef: print 'Save Knlm coefs'
+        if self.GetInit: print 'Save init file'
 
         self.fields={1:["Coordinates","Velocities"],4:["Coordinates","Velocities","Masses"],\
         0:["Coordinates","InternalEnergy","Masses","ElectronAbundance"]}
 
         if catdir.find('1820DM') >0:
             self.whichdm='1820DM'
-        elif catdir.filebase.find('1820FP') >0:
+        elif catdir.find('1820FP') >0:
             self.whichdm='1820FP'
         else:
-            print "Cant find DM or FP!"
-            sys.exit(0)
-
-        print self.catdir,self.snapnum
+            raise ValueError('Cant find DM or FP!')
+        print self.catdir,self.snapnum,self.whichdm
 
         #self.catdir=cat.filebase.split(self.whichdm)[0]+self.whichdm+'/output/'
         N=self.cat.filebase.find('/groups_')
         if int(self.cat.filebase[N+8:N+11]) != self.snapnum:
-            print "Mismatching specification of SnapNum with Subfind catalogue"
-            sys.exit(0)
+            raise ValueError('Mismatching specification of SnapNum with Subfind catalogue')
 
     ## Writes coefficient of HO expansion into file
     def getK(self,partdata,filename,nlim=16,llim=10):
         pos=partdata["Coordinates"]
         mass=partdata["Masses"]
         postemp=pos.copy()
-        a=common.finda( np.sqrt((postemp**2).sum(axis=1)),mass)
+        a=common.finda( np.linalg.norm(postemp,axis=1),mass)
         postemp,mass=common.postosph(postemp, mass)
         postemp[:,0]/=a ###Normalize to a=1
         K=common.knlm(postemp,mass,nlim,llim)
@@ -71,28 +75,27 @@ class Init:
         return K
 
     ## Writes initial positions (km) and velocities (km/s) into file:
-    def getinit(self,partdata,numpart,filename='init.hdf5',nbins=15):
-        edges=np.logspace(np.log10(0.02),np.log10(0.5),nbins+1)
+    def getinit(self,partdata,numpart=100,filename='init.hdf5',range=[0.05,1.],nbins=10):
+        edges=np.logspace(np.log10(range[0]),np.log10(range[1]),nbins+1)
         partnum=np.zeros((nbins,numpart),dtype='int')
         pos=partdata["Coordinates"]
         vel=partdata["Velocities"]
-        dist= np.sqrt((pos**2).sum(axis=1))/partdata["rvir"]
+        rvir=partdata["rvir"]
+        dist= np.linalg.norm(pos,axis=1)/rvir
         for i in np.arange(nbins):
             partnum[i]=rand.sample(np.nonzero( (dist>edges[i]) & (dist<edges[i+1]))[0],numpart)
         temp=partnum.ravel()
         x=np.hstack((pos[temp],vel[temp]))#.reshape(15*numpart,6)
-        #np.savez(savedir+'init',x=x,pos=pos[partnum.ravel()],vel=vel[partnum.ravel()])
         with tables.open_file(self.savedir+'init.hdf5','w') as f:
-            f.create_carray("/","x",tables.Float64Col(),(15*numpart,6))
+            f.create_carray("/","x",tables.Float64Col(),(nbins*numpart,6))
             f.root.x[:]=x
             if self.savepartids == True:
-                f.create_carray("/","IDs",tables.UInt64Col(),(15*numpart,))
+                f.create_carray("/","IDs",tables.UInt64Col(),(nbins*numpart,))
                 f.root.IDs[:]=partdata["ParticleIDs"][temp]
 
     def getrotmat(self,partdata,saving=True):
         #print self.catdir,groupid
         #q,s,n,rotmat=ar.axial(self.cat,self.catdir,self.snapnum,groupid,2,rmin=0.02,rmax=0.5)
-
         Rvir=self.cat.Group_R_Crit200[partdata["groupid"]]
         pos=partdata["Coordinates"]
         mass=partdata["Masses"]
@@ -113,12 +116,14 @@ class Init:
             qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0.4456,0.5610,mass)
             qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0.8912,1.1220,mass)
 
-            qs[0,0],qs[0,1],n,rotmat[0]=ell.ellipsoidfit(pos,Rvir,0,0.1683,mass,weighted=True)
-            qs[1,0],qs[1,1],n,rotmat[1]=ell.ellipsoidfit(pos,Rvir,0,0.5610,mass,weighted=True)
-            qs[2,0],qs[2,1],n,rotmat[2]=ell.ellipsoidfit(pos,Rvir,0,1.1220,mass,weighted=True)
+            qs[0,0],qs[0,1],n,rotmat[3]=ell.ellipsoidfit(pos,Rvir,0,0.1683,mass,weighted=True)
+            qs[1,0],qs[1,1],n,rotmat[4]=ell.ellipsoidfit(pos,Rvir,0,0.5610,mass,weighted=True)
+            qs[2,0],qs[2,1],n,rotmat[5]=ell.ellipsoidfit(pos,Rvir,0,1.1220,mass,weighted=True)
 
     #loadHalo(basePath,snapNum,id,partType,fields=None)
-    def loadandwriteDM(self,groupid):
+    def loadandwriteDM(self,groupid,savedir):
+        print "GROUP",groupid,savedir
+        self.savedir=savedir
         cat=self.cat
         grouppos=cat.GroupPos[groupid]
         groupvel=cat.SubhaloVel[cat.GroupFirstSub[groupid]]
@@ -128,14 +133,13 @@ class Init:
         part=snapshot.loadSubhalo(self.catdir,self.snapnum,cat.GroupFirstSub[groupid],1,self.fields[1])
         part["Coordinates"]=(common.image(grouppos,part["Coordinates"],75000)-grouppos)/h*kpc
         part["Velocities"]=part["Velocities"]-groupvel
-        #pos=(image(grouppos,part.get("Coordinates"),75000)-grouppos)/h*kpc
-        #vel=part.get("Velocities")-groupvel
-        if cat.filebase.find('DM') >0:
+        if self.whichdm.find('DM') >0:
             part["Masses"]=np.ones(part["count"])*0.00052946428432085776/h
-        elif cat.filebase.find('FP') >0:
+        elif self.whichdm.find('FP') >0:
             part["Masses"]=np.ones(part["count"])*0.00044089652436109581/h
         else:
-            print "Cant find DM or FP!"
+            raise ValueError('Cant find DM or FP!')
+
         part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         part["groupid"]=groupid
 
@@ -144,7 +148,9 @@ class Init:
             self.getrotmat(part)
 
         #Rotate particles if needed:
-        if self.RotateParticles==True:
+        if self.RotateParticles:
+            with tables.open_file(savedir+'shape.hdf5','r') as f:
+                rotmat=f.root.rotmat[self.RotateParticles]
             part["Coordinates"]=(np.dot(part["Coordinates"],rotmat))#.reshape(nn,N,3)
             part["Velocities"]=(np.dot(part["Velocities"],rotmat))#.reshape(nn,N,3)
 
@@ -154,9 +160,14 @@ class Init:
 
         #Get Knlm
         if self.GetCoef:
-            self.getK(part,self.savedir+'var.hdf5')
+            self.getK(part,'var.hdf5')
 
-    def loadandwriteFP(self,groupid):
+    def loadandwriteFP(self,groupid,savedir):
+        if self.whichdm.find('DM')>0:
+            raise ValueError('Cant use loadandwriteFP for DMO!')
+
+        print "GROUP",groupid,savedir
+        self.savedir=savedir
         cat=self.cat
         grouppos=cat.GroupPos[groupid]
         groupvel=cat.SubhaloVel[cat.GroupFirstSub[groupid]]
@@ -172,9 +183,9 @@ class Init:
         part4["Velocities"]=part4["Velocities"]-groupvel
         part4["Masses"]=part4["Masses"]/h
 
-        part0=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,0,self.field[0])
+        part0=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,0,self.fields[0])
         part0["Coordinates"]=(common.image(grouppos,part0["Coordinates"],75000)-grouppos)/h*kpc
-        part0["Masses"]=partgas["Masses"]/h
+        part0["Masses"]=part0["Masses"]/h
         gastemp=conversions.GetTemp(part0["InternalEnergy"],part0["ElectronAbundance"],5./3.)
         selh=gastemp>=1e5
         selc=gastemp<=1e5
@@ -184,40 +195,32 @@ class Init:
         part["Masses"]=np.hstack((part1["Masses"],part4["Masses"],part0["Masses"]))
         part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         part["groupid"]=groupid
-        self.getrotmat(part)
+
+        #Get rotation matrices
+        if self.GetRotMat==True:
+            self.getrotmat(part)
 
         #Rotate particles if needed:
         if self.RotateParticles==True:
+            with tables.open_file(self.savedir+'shape.hdf5','r') as f:
+                rotmat=f.root.rotmat[:]
             part1["Coordinates"]=(np.dot(part1["Coordinates"],rotmat))#.reshape(nn,N,3)
             part1["Velocities"]=(np.dot(part1["Velocities"],rotmat))#.reshape(nn,N,3)
             part4["Coordinates"]=(np.dot(part4["Coordinates"],rotmat))#.reshape(nn,N,3)
             part4["Velocities"]=(np.dot(part4["Velocities"],rotmat))#.reshape(nn,N,3)
             part0["Coordinates"]=(np.dot(part0["Coordinates"],rotmat))#.reshape(nn,N,3)
 
+        part1["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         #Save test particles:
         if self.GetInit:
-            self.getinit(part1,100,'initdm.hdf5')
-        #elif component=='cold':
-        #    self.getinit(part1,100,'initstar.hdf5')
+            self.getinit(part1,100,'init.hdf5')
 
         #Save Knlm:
         if self.GetCoef:
             part["Coordinates"]=np.vstack((part1["Coordinates"],partgas["Coordinates"][selh]))
             part["Masses"]=np.hstack((part1["Masses"],partgas["Masses"][selh]))
-            self.getK(part,self.savedir+'varh.hdf5')
+            self.getK(part,'varh.hdf5')
 
             part["Coordinates"]=np.vstack((part4["Coordinates"],partgas["Coordinates"][selc]))
             part["Masses"]=np.hstack((part4["Masses"],partgas["Masses"][selc]))
-            self.getK(part,self.savedir+'varc.hdf5')
-#catdir='/n/hernquistfs2/Illustris/Runs/L75n1820DM/output/'
-#List=[879]
-
-#for i in range(len(List)):
-    #savedir = "GROUP_"+str(List[i]).zfill(3)+"/"
-    #savedir = "./"
-    #if not os.path.isdir(savedir):os.makedirs(savedir)
-    #init=Init(cat,catdir,savedir,snapnum=103)
-    #init.loadandwriteDM(List[i])
-    #init.loadandwriteFP('hot',List[i])
-    #init.loadandwriteFP('cold',List[i])
-    #getrotmat(cat,List[i],catdir,savedir,saving=True)
+            self.getK(part,'varc.hdf5')
