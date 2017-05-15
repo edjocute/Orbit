@@ -5,7 +5,7 @@ import os,sys, getopt
 sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/python')
 import classify
 
-varfile=['var.hdf5','varh.hdf5']
+varfile={1:'var.hdf5',2:'varh.hdf5'}
 
 #plt.interactive(False)
 def intclass(filedir,components,rotation,doclass=True,makeplot=False):
@@ -88,7 +88,7 @@ def plotfin(filedir,components,nbins=10,whichdist=1,ls='-',\
             Ncom=f.root.Ncomponents[0]
         except tables.NoSuchNodeError:
             Ncom=components
-        assert Ncom in [0,1]
+        assert Ncom in [1,2]
 
         with tables.open_file(dirt+varfile[Ncom],'r') as var:
             rvir=var.root.Rvir[:]/classify.h*classify.kpc
@@ -97,11 +97,14 @@ def plotfin(filedir,components,nbins=10,whichdist=1,ls='-',\
 
         edges=np.logspace(np.log10(range[0]),np.log10(range[1]),nbins+1)
         x=(edges[:-1]+edges[1:])/2
-        allbox,alltube,allirr=calcfrac(C,dist,edges)
+        allfrac=calcfrac(C,dist,edges)
+
+        col=['k','b','r','b','b','b']
+        ls=['-','-','-','--','-.',':']
 
         fig,ax=plt.subplots(2,1,figsize=(6,10))
-        for w,c in [[allbox,'k'],[alltube,'b'],[allirr,'r']]:
-            ax[0].semilogx(x,w,c=c,ls=ls)
+        for i in np.arange(6):
+            ax[0].semilogx(x,allfrac[i],c=col[i],ls=ls[i])
         ax[0].legend(['Box','Tube','Irr'],loc=2)
         ax[0].set_xlabel(r'$r/R_{200}$')
         ax[0].set_ylabel('Orbit Fraction')
@@ -125,9 +128,7 @@ def plotall(filedir,components,nbins=10,whichdist=1,\
     else:
         N=1
         ploterr=False
-    allbox=np.zeros((len(allgroups),nbins))
-    alltube=np.zeros((len(allgroups),nbins))
-    allirr=np.zeros((len(allgroups),nbins))
+    allfrac=np.zeros((len(allgroups),6,nbins))
 
     for i in xrange(N):
         if len(allgroups)>0:
@@ -139,22 +140,28 @@ def plotall(filedir,components,nbins=10,whichdist=1,\
                 Ncom=f.root.Ncomponents[0]
             except tables.NoSuchNodeError:
                 Ncom=components
-            assert Ncom in [0,1]
+            assert Ncom in [1,2]
 
             with tables.open_file(dirt+varfile[Ncom],'r') as var:
                 rvir=var.root.Rvir[:]/classify.h*classify.kpc
                 dist=f.root.avgdist[:,whichdist]/rvir
                 C=f.root.classification[:]
-        allbox[i],alltube[i],allirr[i]=calcfrac(C,dist,edges)
+        allfrac[i]=calcfrac(C,dist,edges)
 
+
+    col=['k','b','r','b','b','b']
+    ls=['-','-','-','--','-.',':']
     fig=plt.figure()
-    for w,c in [[allbox,'k'],[alltube,'b'],[allirr,'r']]:
-        plt.semilogx(x,np.median(w,axis=0),c=c,ls=ls)
-    plt.legend(['Box','Tube','Irr'],loc=2)
+    for i in np.arange(6):
+        print np.median(allfrac[:,i],axis=0)
+        plt.semilogx(x,np.median(allfrac[:,i],axis=0),c=col[i],ls=ls[i])
+    plt.legend(['Box','Tube','Irr','Xtube','Ytube','Ztube'],loc=2)
 
     if ploterr==True:
-        for w,c in [[allbox,'k'],[alltube,'b'],[allirr,'r']]:
-            plt.fill_between(x,per(w,25,axis=0),per(w,75,axis=0),color=c,alpha=0.1)
+        for i in np.arange(3):
+            w=allfrac[:,i]
+            plt.fill_between(x,per(w,25,axis=0),per(w,75,axis=0),\
+                    color=col[i],alpha=0.1)
     #plt.axvline(0.5,c='k',ls='--')
     plt.xlabel(r'$r/R_{200}$')
     plt.ylabel('Orbit Fraction')
@@ -181,13 +188,28 @@ def calcfrac(C,dist,edges):
     wbox=np.where( (C==4) | (C==5))[0]
     wtube=np.where( (C==1) | (C==2) | (C==3))[0]
     wirr=np.where(C==0)[0]
-    nbox=np.array([bin.sum() for bin in ((edges[i]<dist[wbox]) & (dist[wbox]<edges[i+1])  for i in np.arange(len(edges)-1))],dtype='float')
-    ntube=np.array([bin.sum() for bin in ((edges[i]<dist[wtube]) & (dist[wtube]<edges[i+1])  for i in np.arange(len(edges)-1))],dtype='float')
-    nirr=np.array([bin.sum() for bin in ((edges[i]<dist[wirr]) & (dist[wirr]<edges[i+1])  for i in np.arange(len(edges)-1))],dtype='float')
-    fbox=nbox/(nbox+ntube+nirr)
-    ftube=ntube/(nbox+ntube+nirr)
+    wx=np.where(C==1)[0]
+    wy=np.where(C==2)[0]
+    wz=np.where(C==3)[0]
+
+    nbox=np.array([bin.sum() for bin in ((edges[i]<dist[wbox]) & (dist[wbox]<edges[i+1])  for i in np.arange(len(edges)-1))])
+    ntube=np.array([bin.sum() for bin in ((edges[i]<dist[wtube]) & (dist[wtube]<edges[i+1])  for i in np.arange(len(edges)-1))])
+    nirr=np.array([bin.sum() for bin in ((edges[i]<dist[wirr]) & (dist[wirr]<edges[i+1])  for i in np.arange(len(edges)-1))])
+    ntot=(nbox+ntube+nirr).astype('float')
+
+    nx=np.array([bin.sum() for bin in ((edges[i]<dist[wx]) & (dist[wx]<edges[i+1])  for i in np.arange(len(edges)-1))])
+    ny=np.array([bin.sum() for bin in ((edges[i]<dist[wy]) & (dist[wy]<edges[i+1])  for i in np.arange(len(edges)-1))])
+    nz=np.array([bin.sum() for bin in ((edges[i]<dist[wz]) & (dist[wz]<edges[i+1])  for i in np.arange(len(edges)-1))])
+
+    fbox=nbox/ntot
+    ftube=ntube/ntot
     firr=1.-(fbox+ftube)
-    return fbox,ftube,firr
+    fx=nx/ntot
+    fy=ny/ntot
+    fz=nz/ntot
+    assert np.allclose(fx+fy+fz,ftube)
+
+    return np.vstack((fbox,ftube,firr,fx,fy,fz))
 
 if __name__ == "__main__":
     step=''
@@ -211,8 +233,6 @@ if __name__ == "__main__":
             r=int(arg)
         elif opt in ("-f", "--filename"):
             f=arg
-
-
     dir = args[0]
 
     if step == 'first':
@@ -220,7 +240,7 @@ if __name__ == "__main__":
     elif step == 'second':
         finclass(dir,c,r,f)
     elif step == 'plotall':
-        plotall(dir,whichdist=1,nbins=15,components=c)
+        pdfmulti(dir,c,f)
     elif step =='plotsingle':
         plotsingle(dir)
     else:

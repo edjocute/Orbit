@@ -48,6 +48,8 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
         file.create_carray("/","classification",tables.Int32Col(),(npart,))
         distout=file.create_carray("/","avgdist",tables.Float64Col(),(npart,2))
         file.create_carray("/","totE",tables.Float64Col(),(npart,2))
+        file.create_carray("/","Ncomponents",tables.Int32Atom(),(1,))
+        file.root.Ncomponents[0]=components
         v=sharedmem.copy(x[:,:,3:])
         x=sharedmem.copy(x[:,:,:3])
 
@@ -146,6 +148,21 @@ def avgdist(filename):
             vr=abs(np.einsum('ij,ij->i',xx,vv)/d)
             distout[i,1]=np.sum(d/vr)/np.sum(1./vr)
         return distout
+
+def getperiod(x):
+    A=np.zeros((x.shape[0],5),dtype='int32')
+    print A.shape
+    for n in np.arange(x.shape[0]):
+        for i in np.arange(3):
+            temp=np.fft.fft(x[n,:,i]+1j*x[n,:,i+3]*Myr)
+            temp=np.abs(temp)
+            temp=np.argsort(temp)[::-1][0]
+            if temp>x.shape[1]/2:
+                temp=x.shape[1]-temp
+            A[n,i+1]=temp
+    A[:,0]=np.median(A[:,1:4],axis=1)
+    return A
+    #return np.argsort(A)[::-1][0]
 
 #def plotclass(dist,C,nbins=10):
 def plotclass(dir,dir2='',dir3='',nbins=10):
