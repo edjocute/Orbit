@@ -73,6 +73,16 @@ int main( int argc, char* argv[]){
     loadHdf5Init(filename, xinit);
     Npart = (vm.count("N")) ? vm["N"].as<int>() : xinit.size();
 
+    std::ofstream comfile("components.param");
+    if (comfile.is_open()){
+        if (vm.count("infile2"))
+            comfile << "2";
+        else
+            comfile << "1";
+        comfile.close();
+    }
+
+
     /* Print some info */
     std::cout << "NLIM,LLIM,NDIM=" << NLIM <<","<< LLIM << "," << NDIM << "\n";
     std::cout << "G="<< GRAVITY << "\n" << "\n";
@@ -114,7 +124,12 @@ int main( int argc, char* argv[]){
         std::ifstream paramfile("params.txt");
         double m,c,E,endtemp;
         //int ntemp;
-        paramfile >> m >> c;
+        if (paramfile.is_open()){
+            paramfile >> m >> c;
+            paramfile.close();
+        }
+        else std::cout << "Unable to open params.txt";
+
         std::cout << "Fitting params m,c=" << m << "," << c << "\n";
         for (int n=0; n<Npart; n++){
             ACC.getEnergy(xinit_run[n],E);
