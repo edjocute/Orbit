@@ -5,13 +5,9 @@ import ctypes
 from functools import partial
 import os,sys
 sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/taxon')
-import taxon
-#import taxonopt
+#import taxon
 #import taxon32768
 #import taxon8192
-#import taxon2
-#import taxon4
-#import taxon6
 #import solve
 import matplotlib.pyplot as plt
 import sharedmem
@@ -20,9 +16,23 @@ Myr = 3.15569e16 #s
 kpc=3.08568e+16 #km
 h=0.704
 
-def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn=16384,end=False):
+def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn=16384,lim=[12,6],end=False):
     sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/Python')
+    import taxon
     import solve
+    def calcclass(i,t,x,v,nn):
+        #taxon(t,x,v,n,jsub,jdim,jcla,jcl,jpan,jlin,jcom,arch)
+        tt=np.asfortranarray(t[i])
+        xx=np.asfortranarray(x[i].transpose())
+        vv=np.asfortranarray(v[i].transpose())*Myr
+        if nn==32768:
+            out=taxon32768.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+        elif nn==16384:
+            #out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+            out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+        elif nn==8192:
+            out=taxon8192.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+        return out
     ## N = no. of particles in each bin
     ## nn = no. of points to be used in classification
     with tables.open_file('shape.hdf5','r') as rotfile:
@@ -64,15 +74,20 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
             distout[:,1]=out
 
         if components==2:
-            A=solve.Problem('varh')
-            B=solve.Problem('varc')
+            A=solve.Problem('varh',nlim=lim[0],llim=lim[1])
+            B=solve.Problem('varc',nlim=lim[0],llim=lim[1])
             file.root.totE[:,0]=A.potential(x[:, 0])[:,0]+ B.potential(x[:, 0])[:,0] + \
                     (v[:,0]**2).sum(axis=1)/2.
             file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+ B.potential(x[:,-1])[:,0] + \
                     (v[:,-1]**2).sum(axis=1)/2.
             del A; del B
         elif components==1:
-            A=solve.Problem('var') #calculate initial and final energy
+            A=solve.Problem('var',nlim=lim[0],llim=lim[1]) #calculate initial and final energy
+            file.root.totE[:,0]=A.potential(x[:,0])[:,0]+(v[:,0]**2).sum(axis=1)/2.
+            file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+(v[:,-1]**2).sum(axis=1)/2.
+            del A
+        elif components==3:
+            A=solve.Problem('varc',nlim=lim[0],llim=lim[1]) #calculate initial and final energy
             file.root.totE[:,0]=A.potential(x[:,0])[:,0]+(v[:,0]**2).sum(axis=1)/2.
             file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+(v[:,-1]**2).sum(axis=1)/2.
             del A
@@ -108,19 +123,19 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
             out=pool.map(getclass,file.root.classorb[:,0])
             file.root.classification[:]=out
 
-def calcclass(i,t,x,v,nn):
-    #taxon(t,x,v,n,jsub,jdim,jcla,jcl,jpan,jlin,jcom,arch)
-    tt=np.asfortranarray(t[i])
-    xx=np.asfortranarray(x[i].transpose())
-    vv=np.asfortranarray(v[i].transpose())*Myr
-    if nn==32768:
-        out=taxon32768.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
-    elif nn==16384:
-        #out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
-        out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
-    elif nn==8192:
-        out=taxon8192.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
-    return out
+#def calcclass(i,t,x,v,nn):
+#    #taxon(t,x,v,n,jsub,jdim,jcla,jcl,jpan,jlin,jcom,arch)
+#    tt=np.asfortranarray(t[i])
+#    xx=np.asfortranarray(x[i].transpose())
+#    vv=np.asfortranarray(v[i].transpose())*Myr
+#    if nn==32768:
+#        out=taxon32768.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+#    elif nn==16384:
+#        #out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+#        out=taxon.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+#    elif nn==8192:
+#        out=taxon8192.taxon(tt,xx,vv,nn,1,3,0,0,0,0,0,'test')
+#    return out
 
 def getclass(classorb):
     xtube=[121,211,221,311,321]
@@ -163,6 +178,71 @@ def getperiod(x):
     A[:,0]=np.median(A[:,1:4],axis=1)
     return A
     #return np.argsort(A)[::-1][0]
+
+def extractlines(FX):
+    N=FX.shape[0]
+    nlim=10
+
+    def h(mm):
+        m=mm.copy()
+        if m.__class__==np.int64:
+            m=np.array([m])
+        m[m>N/2]=m[m>N/2]-N
+        return mm
+
+    def extractline(Fx):
+        Ax=np.abs(Fx)
+        m1=h(np.argsort(Ax)[::-1][0])
+        if Ax[h(m1-1)]>Ax[h(m1+1)]:
+            m2=m1-1
+        else:
+            m2=m1+1
+        k=np.pi/N*(m2-m1)
+        #a=np.arctan2(np.sin(k),np.cos(k)+Ax[m1]/Ax[m2])
+        a=np.arctan2(np.sin(k),(np.cos(k)+Ax[h(m1)]/Ax[h(m2)]))
+        s=a*N/np.pi+m1
+
+        rho = lambda m:1-np.cos(2*np.pi*(s-m)/N) - np.cos(2*np.pi*(s-m)) + np.cos(2*np.pi*(s-m)*(N-1)/N)
+        sigma = lambda m:np.sin(2*np.pi*(s-m)/N) - np.sin(2*np.pi*(s-m)) + np.sin(2*np.pi*(s-m)*(N-1)/N)
+        cosN=1.-np.cos(2*np.pi*(s-m1)/N)
+        A=N*Ax[h(m1)]*np.sqrt(cosN/(1.-np.cos(2*np.pi*(s-m1))  ))
+
+        p=rho(m1)
+        sg=sigma(m1)
+        g=np.angle(Fx[h(m1)])
+        phi=np.arctan2( (cosN* (p*np.sin(g) - sg*np.cos(g)) ),
+                        (cosN* (p*np.cos(g) + sg*np.sin(g)) ))
+
+        line= lambda m: A*np.exp(1j*phi)*(rho(m)+1j*sigma(m))/(2.*N*(1.-np.cos(2*np.pi*(s-m)/N)))
+
+        l=line(np.arange(N))
+        if m1>N/2:
+            l[(m1+1):]=-l[(m1+1):]
+        else:
+            l[:m1]=-l[:m1]
+
+        #l=-l
+        #l[m1]=-l[m1]
+        print Fx[h(np.arange(m1-1,m1+2))]
+        print l[np.arange(m1-1,m1+2)]
+
+        Fx=Fx-l
+
+        return Fx,[s,A,phi]
+
+    #Fx=np.fft.fft(x)
+    Fx=FX.copy()
+    P=np.zeros((nlim,3))
+    for i in np.arange(nlim):
+        print i
+        Fx,P[i]=extractline(Fx)
+
+    return P
+
+
+
+
+
 
 #def plotclass(dist,C,nbins=10):
 def plotclass(dir,dir2='',dir3='',nbins=10):

@@ -5,7 +5,7 @@ import os,sys, getopt
 sys.path.append('/n/ghernquist/kchua/Orbit/201-code-C-Mar2016/python')
 import classify
 
-varfile={1:'var.hdf5',2:'varh.hdf5'}
+varfile={1:'var.hdf5',2:'varh.hdf5',3:'varc.hdf5'}
 
 #plt.interactive(False)
 def intclass(filedir,components,rotation,doclass=True,makeplot=False):
@@ -88,7 +88,7 @@ def plotfin(filedir,components,nbins=10,whichdist=1,ls='-',\
             Ncom=f.root.Ncomponents[0]
         except tables.NoSuchNodeError:
             Ncom=components
-        assert Ncom in [1,2]
+        assert Ncom in [1,2,3]
 
         with tables.open_file(dirt+varfile[Ncom],'r') as var:
             rvir=var.root.Rvir[:]/classify.h*classify.kpc
@@ -115,7 +115,14 @@ def plotfin(filedir,components,nbins=10,whichdist=1,ls='-',\
         return fig
 
 def plotall(filedir,components,nbins=10,whichdist=1,\
-        filename='classout.hdf5',ls='-',ploterr=False,range=[0.05,1.]):
+        filename='classout.hdf5',ls='-',ploterr=True,plottubes=False,range=[0.05,1.]):
+    import matplotlib.pyplot as plt
+    f,ax=plt.subplots(1,1)
+    plotdir(ax,filedir,components,nbins,whichdist,filename,ls,ploterr,plottubes,range)
+    return f
+
+def plotdir(ax,filedir,components,nbins=10,whichdist=1,\
+        filename='classout.hdf5',ls='-',ploterr=True,plottubes=False,range=[0.05,1.]):
     import matplotlib.pyplot as plt
     import glob
     per=np.percentile
@@ -140,7 +147,7 @@ def plotall(filedir,components,nbins=10,whichdist=1,\
                 Ncom=f.root.Ncomponents[0]
             except tables.NoSuchNodeError:
                 Ncom=components
-            assert Ncom in [1,2]
+            assert Ncom in [1,2,3]
 
             with tables.open_file(dirt+varfile[Ncom],'r') as var:
                 rvir=var.root.Rvir[:]/classify.h*classify.kpc
@@ -148,26 +155,27 @@ def plotall(filedir,components,nbins=10,whichdist=1,\
                 C=f.root.classification[:]
         allfrac[i]=calcfrac(C,dist,edges)
 
-
     col=['k','b','r','b','b','b']
-    ls=['-','-','-','--','-.',':']
-    fig=plt.figure()
-    for i in np.arange(6):
-        print np.median(allfrac[:,i],axis=0)
-        plt.semilogx(x,np.median(allfrac[:,i],axis=0),c=col[i],ls=ls[i])
-    plt.legend(['Box','Tube','Irr','Xtube','Ytube','Ztube'],loc=2)
+    lines=['-','-','-','--','-.',':']
+    if plottubes==True:
+        for i in np.arange(6):
+            ax.semilogx(x,np.median(allfrac[:,i],axis=0),c=col[i],ls=lines[i],lw=2)
+        leg=ax.legend(['Box','Tube','Irr','Xtube','Ytube','Ztube'],loc=3)
+    elif plottubes==False:
+        for i in np.arange(3):
+            ax.semilogx(x,np.median(allfrac[:,i],axis=0),c=col[i],ls=ls,lw=2)
+        leg=ax.legend(['Box','Tube','Irr'],loc=3)
+    ax.add_artist(leg)
 
     if ploterr==True:
         for i in np.arange(3):
             w=allfrac[:,i]
-            plt.fill_between(x,per(w,25,axis=0),per(w,75,axis=0),\
+            ax.fill_between(x,per(w,25,axis=0),per(w,75,axis=0),\
                     color=col[i],alpha=0.1)
-    #plt.axvline(0.5,c='k',ls='--')
-    plt.xlabel(r'$r/R_{200}$')
-    plt.ylabel('Orbit Fraction')
-    return fig
+    ax.set_xlabel(r'$r/R_{200}$')
+    ax.set_ylabel('Orbit Fraction')
 
-def pdfmulti(dir,components,filename='classout3.hdf5'):
+def pdfmulti(dir,components,filename='classout3.hdf5',range=[0.05,1.]):
     from matplotlib.backends.backend_pdf import PdfPages
     import matplotlib.pyplot as plt
     import glob
@@ -175,7 +183,7 @@ def pdfmulti(dir,components,filename='classout3.hdf5'):
     alldir=glob.glob(dir+'/GROUP_*')
 
     with PdfPages(dir+'allplots.pdf') as pdf:
-        fig=plotall(dir,components,filename='classout3.hdf5',ploterr=True)
+        fig=plotall(dir,components,filename='classout3.hdf5',ploterr=True,plottubes=True,range=range)
         pdf.savefig(fig)
         plt.close()
         for i in alldir:
@@ -207,7 +215,10 @@ def calcfrac(C,dist,edges):
     fx=nx/ntot
     fy=ny/ntot
     fz=nz/ntot
-    assert np.allclose(fx+fy+fz,ftube)
+    try:
+        assert np.allclose(fx+fy+fz,ftube)
+    except AssertionError:
+        print fx,fy,fz,ftube
 
     return np.vstack((fbox,ftube,firr,fx,fy,fz))
 
@@ -240,7 +251,9 @@ if __name__ == "__main__":
     elif step == 'second':
         finclass(dir,c,r,f)
     elif step == 'plotall':
-        pdfmulti(dir,c,f)
+        pdfmulti(dir,c,f,range=[0.05,1.])
+    elif step == 'plotallstars':
+        pdfmulti(dir,c,f,range=[0.05,0.5])
     elif step =='plotsingle':
         plotsingle(dir)
     else:
