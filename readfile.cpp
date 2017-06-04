@@ -172,7 +172,8 @@ int Readparams::read(int argc, char *argv[]){
         ("Firstpass,F", po::value<bool> () -> default_value(true), "First or second pass")
         //("dt,dt", po::value<double>(& dt) -> default_value(3e13), "Time Step")
         ("verbose,v", po::value<bool> (& verbose) -> default_value(false), "Verbosity")
-        ("tol,", po::value<double>(& tol) -> default_value(1e-12), "Relative tolerance for              integration");
+        ("test,", po::value<bool> (& test) -> default_value(false), "Write test potentials")
+        ("tol,", po::value<double>(& tol) -> default_value(1e-12), "Relative tolerance for integration");
     po::positional_options_description positionalOptions;
     positionalOptions.add("infile1",1);
     positionalOptions.add("infile2",1);
