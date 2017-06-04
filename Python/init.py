@@ -22,7 +22,7 @@ keysel=["Group_M_Crit200","Group_R_Crit200","GroupFirstSub","GroupPos","SubhaloV
 
 class Init:
     def __init__(self,catdir,snapnum=135,savepartids=False,\
-            GetRotMat=True,RotateParticles=False,GetCoef=True,GetInit=True):
+            GetRotMat=True,RotateParticles=False,GetCoef=True,GetInit=True,GetInitStar=False):
         self.catdir=catdir
         self.snapnum=snapnum
 
@@ -33,18 +33,21 @@ class Init:
         self.GetRotMat=GetRotMat
         self.GetCoef=GetCoef
         self.GetInit=GetInit
+        self.GetInitStar=GetInitStar
 
         print 'You have chosen the following:'
         if self.RotateParticles: print 'Rotate particles using ',self.RotateParticles
         if self.GetRotMat: print 'Save rotmat'
         if self.GetCoef: print 'Save Knlm coefs'
-        if self.GetInit: print 'Save init file'
+        if self.GetInit: print 'Save DM init file'
+        if self.GetInitStar: print 'Save Stellar init file'
 
         self.fields={1:["Coordinates","Velocities"],4:["Coordinates","Velocities","Masses"],\
         0:["Coordinates","InternalEnergy","Masses","ElectronAbundance"]}
 
         if catdir.find('1820DM') >0:
             self.whichdm='1820DM'
+            self.GetInitStar=False
         elif catdir.find('1820FP') >0:
             self.whichdm='1820FP'
         else:
@@ -77,18 +80,36 @@ class Init:
     ## Writes initial positions (km) and velocities (km/s) into file:
     def getinit(self,partdata,numpart=100,filename='init.hdf5',range=[0.05,1.],nbins=10):
         edges=np.logspace(np.log10(range[0]),np.log10(range[1]),nbins+1)
-        partnum=np.zeros((nbins,numpart),dtype='int')
+        #partnum=np.zeros((nbins,numpart),dtype='int')
+        count=np.zeros(nbins,dtype='Int32')
         pos=partdata["Coordinates"]
         vel=partdata["Velocities"]
         rvir=partdata["rvir"]
         dist= np.linalg.norm(pos,axis=1)/rvir
         for i in np.arange(nbins):
-            partnum[i]=rand.sample(np.nonzero( (dist>edges[i]) & (dist<edges[i+1]))[0],numpart)
-        temp=partnum.ravel()
+            bin=((dist>edges[i]) & (dist<edges[i+1]))
+            if bin.sum()<numpart:
+                count[i]=bin.sum()
+            else:
+                count[i]=numpart
+        partnum=np.zeros(count.sum(),dtype='Int64')
+        cumcount=np.zeros(nbins+1,dtype='Int32')
+        cumcount[1:]=count.cumsum()
+        print cumcount
+
+        for i in np.arange(nbins):
+            bin=((dist>edges[i]) & (dist<edges[i+1]))
+            partnum[cumcount[i]:cumcount[i+1]]=rand.sample(np.nonzero(bin)[0],count[i])
+        temp=partnum
         x=np.hstack((pos[temp],vel[temp]))#.reshape(15*numpart,6)
-        with tables.open_file(self.savedir+'init.hdf5','w') as f:
-            f.create_carray("/","x",tables.Float64Col(),(nbins*numpart,6))
+        with tables.open_file(self.savedir+filename,'w') as f:
+            f.create_carray("/","x",tables.Float64Col(),(count.sum(),6))
+            f.create_carray("/","edges",tables.Float64Col(),(nbins+1,))
+            f.create_carray("/","count",tables.Int32Col(),(nbins,))
             f.root.x[:]=x
+            f.root.edges[:]=edges
+            f.root.count[:]=count
+
             if self.savepartids == True:
                 f.create_carray("/","IDs",tables.UInt64Col(),(nbins*numpart,))
                 f.root.IDs[:]=partdata["ParticleIDs"][temp]
@@ -210,10 +231,14 @@ class Init:
             part4["Velocities"]=(np.dot(part4["Velocities"],rotmat))#.reshape(nn,N,3)
             part0["Coordinates"]=(np.dot(part0["Coordinates"],rotmat))#.reshape(nn,N,3)
 
-        part1["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         #Save test particles:
         if self.GetInit:
+            part1["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
             self.getinit(part1,100,'init.hdf5')
+
+        if self.GetInitStar:
+            part4["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
+            self.getinit(part4,100,'initstar.hdf5',range=[0.05,0.5])
 
         #Save Knlm:
         if self.GetCoef:
