@@ -219,6 +219,8 @@ void calcAcc::getSphPot(const struct Indata *Var, const state_type sph, double &
             /* Reinitialize C_lm, D_lm etc. to 0 for each l,m 
              * and sum over n*/
             C=0; D=0;
+
+            #pragma novector
             for (int n=0; n<NLIM; n++){
                 C +=Phi[n]     *Var->Knlm[ll][mm][n][0];
                 D +=Phi[n]     *Var->Knlm[ll][mm][n][1];

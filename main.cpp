@@ -40,6 +40,39 @@ int main( int argc, char* argv[]){
     loadHdf5Init(allparams.initfilename, xinit);
     //Npart = (vm.count("N")) ? vm["N"].as<int>() : xinit.size();
     /* Check whether 1st or 2nd pass and adjust the integration points accordingly. */
+
+
+    /* FOR TESTING ONLY:
+     * Save test potentials to file and exit */
+    if (allparams.test){
+        double pot=0;
+        std::cout << "Saving potentials to file:" << "\n";
+        std::ofstream potfile("Potentials.txt");
+        if (potfile.is_open()){
+            for (int n=0; n<xinit.size(); n++){
+                ACC.getPotential(xinit[n],pot);
+                potfile << pot << std::endl;
+            }
+        }
+        potfile.close();
+
+        state_type testacc(6);
+        std::cout << "Saving accelerations to file:" << std::endl;
+        std::ofstream accfile("Acc.txt");
+        if (accfile.is_open()){
+            for (int n=0; n<xinit.size(); n++){
+                ACC.getCartAcc(xinit[n],testacc);
+                for (int m=0; m<6; m++){ 
+                    accfile << testacc[m] << "\t";
+                }
+                accfile << "\n";
+            }
+        }
+        std::cout << "done!" << std::endl;
+        return 0;
+    }
+
+
     if (allparams.firstpass){
         Npart=100;
         xinit_run = std::vector<state_type>();
