@@ -15,7 +15,7 @@ ifeq ($(CC),cc)
   endif
 endif
 
-LFLAGS += -lgsl -lgslcblas -lhdf5 -lboost_program_options
+LFLAGS += -lgsl -lgslcblas -lhdf5 -lboost_program_options -lfftw3 -lm
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
   CFLAGS +=-O3 -g -c -w1 -openmp -xHost
