@@ -6,6 +6,8 @@
 #include <omp.h>
 #include <string>
 #include <fstream>
+#include <complex>
+#include <fftw3.h>
 
 using namespace boost::numeric::odeint;
 
@@ -91,8 +93,8 @@ int main( int argc, char* argv[]){
     }
 
     /* Create output arrays based on number of integration points */
-    state_type XX(Npart*(allparams.NumSavepoints+1)*6); //output array
-    state_type T(Npart*(allparams.NumSavepoints+1));
+    state_type XX(Npart*(allparams.NumSavepoints)*6); //output array
+    state_type T(Npart*(allparams.NumSavepoints));
     std::cout << "Total points in input/Points to integrate = " << xinit.size() << "/" << Npart << '\n';
 
     /* Calculate end time array for particles  */
@@ -100,7 +102,7 @@ int main( int argc, char* argv[]){
     if (allparams.firstpass){
         for (int n=0; n<Npart; n++){
             endTimeAll[n]=allparams.endTime;
-            dtAll[n]=allparams.endTime/allparams.nPoints;
+            dtAll[n]=allparams.endTime/(allparams.nPoints-1);
         }
     }
     else{
@@ -118,7 +120,7 @@ int main( int argc, char* argv[]){
         for (int n=0; n<Npart; n++){
             ACC.getEnergy(xinit_run[n],E);
             endTimeAll[n]=70./pow(10,fabs(E)*m/10000+c) * allparams.endTime;
-            dtAll[n]=endTimeAll[n]/allparams.nPoints;
+            dtAll[n]=endTimeAll[n]/(allparams.nPoints-1);
             /*ntemp=endTimeAll[n]/dt;
             if ( double(ntemp % NumSavepoints)/ntemp > 0.1){
                 ntemp--;                ntemp |= ntemp >> 1;
@@ -142,7 +144,7 @@ int main( int argc, char* argv[]){
         if (omp_get_thread_num()==0){
             std::cout << "Num_threads = " << omp_get_num_threads() << "\n";
         }
-        #pragma omp for schedule(dynamic,2)
+        #pragma omp for schedule(dynamic,4)
         for (int n=0; n<Npart; n++){
             std::vector<state_type> Xpriv;
             state_type Tpriv;
@@ -152,12 +154,43 @@ int main( int argc, char* argv[]){
             if (allparams.verbose){
                 std::cout << "n,npoints,size(T) = " << n <<","<< allparams.nPoints <<","<< Tpriv.size() <<"\n";
             }
-            for (int x=0;x<=allparams.NumSavepoints; x++){
-                T[n*(allparams.NumSavepoints+1)+x] = Tpriv[allparams.saveint*x];
+            for (int x=0;x<allparams.NumSavepoints; x++){
+                T[n*(allparams.NumSavepoints)+x] = Tpriv[allparams.saveint*x];
                 for (int y=0; y<6; y++){
-                    XX[n*6*(allparams.NumSavepoints+1)+6*x+y]=Xpriv[allparams.saveint*x][y];
+                    XX[n*6*(allparams.NumSavepoints)+6*x+y]=Xpriv[allparams.saveint*x][y];
                 }
             }
+
+            state_type v(allparams.nPoints);
+            std::vector<std::complex<double>> fv(allparams.nPoints/2+1);
+            fftw_plan plan = fftw_plan_dft_r2c_1d(allparams.nPoints,&v[0],reinterpret_cast<fftw_complex*>(&fv[0]),FFTW_ESTIMATE);
+            /*std::vector<std::complex<double>> v(allparams.nPoints);
+            fftw_plan plan = fftw_plan_dft_1d(allparams.nPoints,reinterpret_cast<fftw_complex*>(&v[0]),
+                                                                    reinterpret_cast<fftw_complex*>(&v[0]),FFTW_FORWARD,FFTW_ESTIMATE);*/
+
+            int sumlargesti=0;
+            for (unsigned int k=0; k<3; k++){
+                #pragma omp simd
+                for (unsigned int i=0; i<allparams.nPoints; i++)
+                    v[i]=Xpriv[allparams.saveint*i][k];
+                    //v[i]=std::complex<double> (Xpriv[allparams.saveint*i][k],Xpriv[allparams.saveint*i][k+3]);
+                fftw_execute(plan);
+
+                double largest=0.;
+                int largesti=0;
+                double normv;
+                for (unsigned int i=1; i<allparams.nPoints/2; i++){
+                    normv=std::norm(fv[i]);
+                    //normv=std::norm(v[i])+std::norm(v[allparams.nPoints-i]);
+                    if (normv > largest){
+                        largest=normv;
+                        largesti=i;
+                    }
+                }
+                sumlargesti+=largesti;
+            }
+            std::cout << n << "," << sumlargesti/3 << "\n";
+            fftw_destroy_plan(plan);
         }//end omp for
     }//end omp parallel
     double time2=omp_get_wtime();
@@ -167,15 +200,15 @@ int main( int argc, char* argv[]){
     if (allparams.verbose){
     for (int n=0; n< ((Npart<10) ? Npart : 10); n++){
         std::cout << n << '\n';
-        std::cout << T[n*(allparams.NumSavepoints+1)] << '\t' ;
+        std::cout << T[n*(allparams.NumSavepoints)] << '\t' ;
         for ( size_t j=0; j<=5; j++){
-            std::cout <<  XX[n*6*(allparams.NumSavepoints+1)+j] << '\t';
+            std::cout <<  XX[n*6*(allparams.NumSavepoints)+j] << '\t';
         }
         std::cout << '\n';
 
-        std::cout <<  T[(n+1)*(allparams.NumSavepoints+1)-1] << '\t' ;
+        std::cout <<  T[(n+1)*(allparams.NumSavepoints)-1] << '\t' ;
         for ( size_t j=0; j<=5; j++){
-            std::cout <<  XX[n*6*(allparams.NumSavepoints+1)+6*(allparams.NumSavepoints)+j] << '\t';
+            std::cout <<  XX[n*6*(allparams.NumSavepoints)+6*(allparams.NumSavepoints)+j] << '\t';
         }
         std::cout << '\n';
     }

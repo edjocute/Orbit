@@ -93,6 +93,7 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
     const double xi=(r-1.)/(r+1.);
 
     /* Initialize required arrays */
+    #pragma omp simd
     for (int m=0;m<LLIM;m++){
         cosm[m]=cos(m*sph[2]);
         sinm[m]=sin(m*sph[2]);
