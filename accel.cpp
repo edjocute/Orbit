@@ -17,7 +17,7 @@ void calcAcc::sphToCart(state_type &x){
 }
 
 /* Converts cartesian coordinates to spherical coordinates */
-inline void calcAcc::cartToSph(state_type &x){
+void calcAcc::cartToSph(state_type &x){
             double r = gsl_hypot3(x[0],x[1],x[2]);
             if (r==0){
                 x[0]=0; x[1]=1e-5; x[2]=1e-5;
@@ -38,7 +38,7 @@ void calcAcc::cartVec(const state_type x, state_type &vec){
     double cosphi=cos(x[2]);
     double sinphi=sin(x[2]);
 
-    state_type temp(3);
+    double temp[3];
     temp[0] = sintheta*cosphi*vec[0] + costheta*cosphi*vec[1] - sinphi*vec[2];
     temp[1] = sintheta*sinphi*vec[0] + costheta*sinphi*vec[1] + cosphi*vec[2];
     temp[2] = costheta*vec[0] - sintheta*vec[1];

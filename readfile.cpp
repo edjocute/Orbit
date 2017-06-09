@@ -169,7 +169,7 @@ int Readparams::read(int argc, char *argv[]){
         ("i,i", po::value<std::string>()->default_value("init.hdf5"),"File with initial positions")
         ("N,N", po::value<int>(&Npart), "no. of particles to integrate")
         ("e,e", po::value<double>( &endTime)->default_value(5e18), "End time of integration in s")
-        ("Firstpass,F", po::value<bool> () -> default_value(true), "First or second pass")
+        ("Firstpass,F", po::value<bool> () -> default_value(false), "First or second pass")
         //("dt,dt", po::value<double>(& dt) -> default_value(3e13), "Time Step")
         ("verbose,v", po::value<bool> (& verbose) -> default_value(false), "Verbosity")
         ("test,", po::value<bool> (& test) -> default_value(false), "Write test potentials")

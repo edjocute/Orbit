@@ -39,11 +39,11 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
         rotmat=rotfile.root.rotmat[rotation]
     with tables.open_file(infile,'r') as u:
         #t=u.root.t[:]/Myr
-        npart=u.root.x.shape[0]/(npoints+1)/6
+        npart=u.root.x.shape[0]/(npoints)/6
         print 'analyzing orbits for',infile
         classout=np.zeros((npart,2))
-        x=u.root.x[:].reshape(npart,npoints+1,6)
-        t=u.root.t[:].reshape(npart,npoints+1)/Myr
+        x=u.root.x[:].reshape(npart,npoints,6)
+        t=u.root.t[:].reshape(npart,npoints)/Myr
     if end:
         print 'using only ',end,' points'
         t=t[:end]
