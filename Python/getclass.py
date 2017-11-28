@@ -86,8 +86,8 @@ def plotfin(filedir,components,nbins=10,whichdist=1,ls='-',\
     with tables.open_file(filename,'r') as f:
         try:
             Ncom=f.root.Ncomponents[0]
-        except tables.NoSuchNodeError:
-            Ncom=components
+        except:
+                Ncom=components
         assert Ncom in [1,2,3]
 
         with tables.open_file(dirt+varfile[Ncom],'r') as var:
@@ -188,7 +188,7 @@ def pdfmulti(dir,components,filename='classout3.hdf5',range=[0.05,1.]):
         plt.close()
         for i in alldir:
             print i
-            fig=plotfin(i+'/classout3.hdf5',components)
+            fig=plotfin(i+filename,components)
             pdf.savefig(fig)
             plt.close()
 

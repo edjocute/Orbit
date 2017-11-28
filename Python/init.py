@@ -47,12 +47,25 @@ class Init:
 
         if catdir.find('1820DM') >0:
             self.whichdm='1820DM'
-            self.GetInitStar=False
+            self.dmpartmass=0.00052946428432085776
         elif catdir.find('1820FP') >0:
             self.whichdm='1820FP'
+            self.dmpartmass=0.00044089652436109581
+        elif catdir.find('910DM') >0:
+            self.whichdm='910DM'
+            self.dmpartmass=0.0042357142745668621
+        elif catdir.find('910FP') >0:
+            self.whichdm='910FP'
+            self.dmpartmass=0.0035271721948887664
         else:
             raise ValueError('Cant find DM or FP!')
-        print self.catdir,self.snapnum,self.whichdm
+        print self.catdir,self.snapnum
+        print self.whichdm,self.dmpartmass
+
+        if self.whichdm.find('DM')>0:
+            if self.GetInitStar:
+                self.GetInitStar=False
+                print 'Warning: no stellar init for DMO runs!'
 
         #self.catdir=cat.filebase.split(self.whichdm)[0]+self.whichdm+'/output/'
         N=self.cat.filebase.find('/groups_')
@@ -123,7 +136,7 @@ class Init:
         pos=pos/partdata["rvir"]
 
         if mass.std()==0:
-            mass=np.array(False)
+            mass=False
 
         with tables.open_file(self.savedir+'shape.hdf5','w') as f:
             qs=f.create_carray("/","qs",tables.Float64Col(),(6,2))
@@ -154,12 +167,12 @@ class Init:
         part=snapshot.loadSubhalo(self.catdir,self.snapnum,cat.GroupFirstSub[groupid],1,self.fields[1])
         part["Coordinates"]=(common.image(grouppos,part["Coordinates"],75000)-grouppos)/h*kpc
         part["Velocities"]=part["Velocities"]-groupvel
-        if self.whichdm.find('DM') >0:
-            part["Masses"]=np.ones(part["count"])*0.00052946428432085776/h
-        elif self.whichdm.find('FP') >0:
-            part["Masses"]=np.ones(part["count"])*0.00044089652436109581/h
-        else:
-            raise ValueError('Cant find DM or FP!')
+        part["Masses"]=np.ones(part["count"])*self.dmpartmass/h
+        #elif self.whichdm=='1820FP':
+        #    part["Masses"]=np.ones(part["count"])*0.00044089652436109581/h
+        #elif self.whichdm=='18
+        #else:
+        #    raise ValueError('Cant find DM or FP!')
 
         part["rvir"]=self.cat.Group_R_Crit200[groupid]/h*kpc
         part["groupid"]=groupid
@@ -197,7 +210,7 @@ class Init:
         part1=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,1,self.fields[1])
         part1["Coordinates"]=(common.image(grouppos,part1["Coordinates"],75000)-grouppos)/h*kpc
         part1["Velocities"]=part1["Velocities"]-groupvel
-        part1["Masses"]=np.ones(part1["count"])*0.00044089652436109581/h
+        part1["Masses"]=np.ones(part1["count"])*self.dmpartmass/h
 
         part4=snapshot.loadSubhalo(self.catdir,self.snapnum,subid,4,self.fields[4])
         part4["Coordinates"]=(common.image(grouppos,part4["Coordinates"],75000)-grouppos)/h*kpc

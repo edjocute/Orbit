@@ -44,6 +44,11 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
         classout=np.zeros((npart,2))
         x=u.root.x[:].reshape(npart,npoints,6)
         t=u.root.t[:].reshape(npart,npoints)/Myr
+        try:
+            Ncom=u.root.NumComponents[:]
+        except tables.NoSuchNodeError:
+            Ncom=components
+        assert Ncom in [1,2]
     if end:
         print 'using only ',end,' points'
         t=t[:end]
@@ -59,7 +64,7 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
         distout=file.create_carray("/","avgdist",tables.Float64Col(),(npart,2))
         file.create_carray("/","totE",tables.Float64Col(),(npart,2))
         file.create_carray("/","Ncomponents",tables.Int32Atom(),(1,))
-        file.root.Ncomponents[0]=components
+        file.root.Ncomponents[0]=Ncom
         v=sharedmem.copy(x[:,:,3:])
         x=sharedmem.copy(x[:,:,:3])
 
@@ -73,7 +78,7 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
             out=pool.map(partialfunc,xrange(npart))
             distout[:,1]=out
 
-        if components==2:
+        if Ncom==2:
             A=solve.Problem('varh',nlim=lim[0],llim=lim[1])
             B=solve.Problem('varc',nlim=lim[0],llim=lim[1])
             file.root.totE[:,0]=A.potential(x[:, 0])[:,0]+ B.potential(x[:, 0])[:,0] + \
@@ -81,12 +86,12 @@ def classall(infile,components,rotation,outfile='classout.hdf5',npoints=16384,nn
             file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+ B.potential(x[:,-1])[:,0] + \
                     (v[:,-1]**2).sum(axis=1)/2.
             del A; del B
-        elif components==1:
+        elif Ncom==1:
             A=solve.Problem('var',nlim=lim[0],llim=lim[1]) #calculate initial and final energy
             file.root.totE[:,0]=A.potential(x[:,0])[:,0]+(v[:,0]**2).sum(axis=1)/2.
             file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+(v[:,-1]**2).sum(axis=1)/2.
             del A
-        elif components==3:
+        elif Ncom==3:
             A=solve.Problem('varc',nlim=lim[0],llim=lim[1]) #calculate initial and final energy
             file.root.totE[:,0]=A.potential(x[:,0])[:,0]+(v[:,0]**2).sum(axis=1)/2.
             file.root.totE[:,1]=A.potential(x[:,-1])[:,0]+(v[:,-1]**2).sum(axis=1)/2.
