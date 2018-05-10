@@ -4,7 +4,6 @@
 #include <iostream>
 #include <math.h>
 
-
 #ifndef HEADER
 #define HEADER
 
@@ -13,6 +12,7 @@
 #define LLIM    6
 #define NMAX    16
 #define LMAX    10
+#define NDIM    ((LLIM+1)*(LLIM+6)/2)
 
 //#define SQRT4PI   3.5449077018110318
 //#define SQRT4PI     3.544907701811032054596334966682290365595098912244774256427
@@ -23,6 +23,19 @@ typedef std::vector<double> state_type;
 struct Indata {
     double Knlm[LMAX][LMAX][NMAX][2];
     double scalerad, virialrad;
+};
+
+class Readparams{
+    public:
+        double endTime, dt, tol;
+        int nPoints, Npart, saveint, NumComponents=1;
+        int NumSavepoints=16384; //no. of time points to be saved in output file per particle
+        bool verbose, twocomp=false, firstpass, test;
+        char *infilename1, *infilename2, *outfilename, *initfilename;
+        int read(int argc, char *argv[]);
+        void operator() (int argc, char *argv[]){
+            read(argc,argv);
+        }
 };
 
 class calcAcc{
@@ -52,16 +65,14 @@ class calcAcc{
         }
 };
 
-struct saveStates
-{
+struct saveStates{
     std::vector<state_type>& m_states;
     std::vector<double>& m_times;
 
     saveStates( std::vector<state_type> &states ,std::vector< double > &times )
     : m_states( states ) , m_times( times ) { }
 
-    void operator()( const state_type &x , double t )
-    {
+    void operator()( const state_type &x , double t ){
         m_states.push_back( x );
         m_times.push_back( t );
     }
@@ -85,7 +96,7 @@ struct streaming_observer
 
 int loadHdf5Input(char *filename, struct Indata *var);
 int loadHdf5Init(char *filename, std::vector<state_type> &init);
-int saveHdf5(char *filename, state_type &OUT, state_type &TIME);
+int saveHdf5(Readparams &allparams, state_type &OUT, state_type &TIME);
 
 #endif
 
