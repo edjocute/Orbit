@@ -86,7 +86,7 @@ int loadHdf5Init(char *filename, std::vector<state_type> &init){
     hdf_dspace = H5Dget_space(hdf_data);
     hsize_t dims[2];
     H5Sget_simple_extent_dims(hdf_dspace,dims,NULL);
-    fprintf(stdout,"No. of test particles read = %d\n",dims[0]);
+    std::cout << "No. of test particles read = " << dims[0] << "\n";
     double *temp = new double[dims[0]*dims[1]];
     status=H5Dread(hdf_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, temp);
     for (int i=0; i<dims[0]; i++){

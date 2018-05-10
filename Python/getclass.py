@@ -228,11 +228,11 @@ if __name__ == "__main__":
     try:
         opts, args = getopt.getopt(sys.argv[1:],"hs:c:r:f:",["step=","components=","rotation=","filename="])
     except getopt.GetoptError:
-        print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r # -f filename'
+        print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r # -f savename'
         sys.exit(2)
     for opt,arg in opts:
         if opt == '-h':
-            print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r # -f filename'
+            print 'intermediate.py -s first/second -c 1/2 <i/o dir> -r # -f savename'
             sys.exit()
         elif opt in ("-s", "--step"):
             step = arg
@@ -244,7 +244,12 @@ if __name__ == "__main__":
             r=int(arg)
         elif opt in ("-f", "--filename"):
             f=arg
-    dir = args[0]
+    try:
+        dir = args[0]
+    except IndexError:
+        print 'directory not specified. Assumming current directory ./'
+        dir = './'
+
 
     if step == 'first':
         intclass(dir,c,r,doclass=True,makeplot=True)
