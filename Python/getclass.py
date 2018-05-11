@@ -20,7 +20,7 @@ def intclass(filedir,components,rotation,doclass=True,makeplot=False):
             return a*(abs(x)/1.e4)**2 + b*abs(x)/1.e4 + c
         #plt.plot(abs(E),10**fitfunc(abs(E[C!=0]),p[0],p[1],p[2]),'-')
         lin=stats.linregress(abs(E[C!=0])/1.e4,np.log10(C[C!=0]))
-        with open(filedir+'params.txt','w') as paramf:
+        with open(filedir+'/params.txt','w') as paramf:
             paramf.write('%.10f \t %.10f' % (lin[0],lin[1]))
     print lin[0],lin[1]
 
@@ -30,7 +30,7 @@ def intclass(filedir,components,rotation,doclass=True,makeplot=False):
 
 def finclass(filedir,components,rotation,outfile,makeplot=False):
     classify.classall(filedir+'/save.hdf5',components,rotation,\
-            outfile=filedir+outfile,npoints=16384)
+            filedir+'/'+outfile,npoints=16384)
 
 def plotsingle(filedir,lin=False):
     import matplotlib as mpl
