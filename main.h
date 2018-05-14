@@ -79,6 +79,7 @@ class calcOrb{
         }
         void test(std::vector<array6> const &xinit);
         void integrate(state_type &XX, state_type &T, std::vector<array6> &xinit_run);
+        void integrateDecay(state_type &XX, state_type &T, std::vector<array6> &xinit_run);
 };
 
 struct saveStates{
