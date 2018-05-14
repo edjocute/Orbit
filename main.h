@@ -1,8 +1,12 @@
 #include <vector>
+#include <array>
 //#include <boost/array.hpp>
 //#include <boost/multi_array.hpp>
 #include <iostream>
 #include <math.h>
+#include <fftw3.h>
+#include <complex>
+#include "readfile.h"
 
 #ifndef HEADER
 #define HEADER
@@ -15,9 +19,13 @@
 #define NDIM    ((LLIM+1)*(LLIM+6)/2)
 
 //#define SQRT4PI   3.5449077018110318
-//#define SQRT4PI     3.544907701811032054596334966682290365595098912244774256427
+//#define SQRT4PI   3.544907701811032054596334966682290365595098912244774256427
 
 typedef std::vector<double> state_type;
+typedef std::vector<std::complex<double>>  complex_type;
+typedef std::array<double,3> array3;
+
+extern Readparams allparams;
 
 /* Structure for storing input params from Python init.py*/
 struct Indata {
@@ -25,29 +33,17 @@ struct Indata {
     double scalerad, virialrad;
 };
 
-class Readparams{
-    public:
-        double endTime, dt, tol;
-        int nPoints, Npart, saveint, NumComponents=1;
-        int NumSavepoints=16384; //no. of time points to be saved in output file per particle
-        bool verbose, twocomp=false, firstpass, test;
-        char *infilename1, *infilename2, *outfilename, *initfilename;
-        int read(int argc, char *argv[]);
-        void operator() (int argc, char *argv[]){
-            read(argc,argv);
-        }
-};
-
 class calcAcc{
     double temppot;
     struct Indata *var,*varfp;
     void cartToSph(state_type &x);
     void sphToCart(state_type &x);
-    void cartVec(const state_type x, state_type &vec);
-    void getSphAcc(const struct Indata *Var, const state_type sph, state_type &acc);
+    void cartVec(const state_type &x, state_type &vec);
+    void getSphAcc(const struct Indata *Var, const state_type &sph, state_type &acc);
     void getSphPot(const struct Indata *Var, const state_type sph, double &pot);
 
     public:
+        calcAcc() {};
         calcAcc(struct Indata *invar){var = invar; varfp=NULL;}//Nbody
         calcAcc(struct Indata *invar, struct Indata *invarfp){//Hydro
             var=invar;
@@ -63,6 +59,23 @@ class calcAcc{
         void operator() (const state_type x, state_type &dxdt, const double){
             getCartAcc(x,dxdt);
         }
+};
+
+class calcOrb{
+    private:
+        calcAcc ACC;
+        //Readparams *allparams;
+        void getperiod(fftw_plan plan, const std::vector<state_type>& Xpriv, state_type &v, 
+                complex_type &fv, double &maxamp, int &maxi);
+
+    public:
+        //calcOrb(Readparams *params, struct Indata &invar, struct Indata &invarfp){
+        calcOrb(struct Indata &invar, struct Indata &invarfp){
+            //allparams=params;
+            ACC=(allparams.twocomp) ? calcAcc(&invar,&invarfp) : calcAcc(&invar);
+        }
+        void test(std::vector<state_type> const &xinit);
+        void integrate(state_type &XX, state_type &T, std::vector<state_type> &xinit_run);
 };
 
 struct saveStates{
@@ -96,7 +109,7 @@ struct streaming_observer
 
 int loadHdf5Input(char *filename, struct Indata *var);
 int loadHdf5Init(char *filename, std::vector<state_type> &init);
-int saveHdf5(Readparams &allparams, state_type &OUT, state_type &TIME);
+int saveHdf5(state_type &OUT, state_type &TIME);
 
 #endif
 

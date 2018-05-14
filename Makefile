@@ -18,18 +18,18 @@ endif
 LFLAGS += -lgsl -lgslcblas -lhdf5 -lboost_program_options -lfftw3 -lm
 #Are we using gcc or icc?
 ifeq (icc,$(findstring icc,${CC}))
-  CFLAGS +=-O3 -g -c -w1 -openmp -xHost
-  LINK +=${CXX} -openmp
+  CFLAGS +=-O3 -g -c -w1 -openmp -xHost -parallel
+  LINK +=${CXX} -openmp -parallel
 else
-  CFLAGS +=-O2 -g -c -Wall -fopenmp
+  CFLAGS +=-O3 -g -c -Wall -fopenmp
   LINK +=${CXX} #$(PRO)
   LFLAGS += -lm -lgomp
 endif
 CXXFLAGS +=${CFLAGS}
 CFLAGS+= -std=c++11
 
-OBJS =  readfile.o accel.o main.o
-INCL   = main.h
+OBJS =  readfile.o accel.o integrate.o main.o
+INCL   = main.h readfile.h
 
 
 all:main

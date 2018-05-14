@@ -32,7 +32,7 @@ void calcAcc::cartToSph(state_type &x){
 }
 
 /* Convert vector in spherical coordinates to cartesian coorinates */
-void calcAcc::cartVec(const state_type x, state_type &vec){
+void calcAcc::cartVec(const state_type &x, state_type &vec){
     double costheta=x[1];
     double sintheta=sqrt(1-pow(costheta,2));
     double cosphi=cos(x[2]);
@@ -78,7 +78,7 @@ void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
 /*Calculates unnormalized accelerations from positions in spherical coordinates
  * Requires normalization by G/a**2
  */
-void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_type &acc){
+void calcAcc::getSphAcc(const struct Indata *Var, const state_type &sph, state_type &acc){
 
     //int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for Legendre polynomials
     //size_t ndim=gsl_sf_legendre_array_n(LLIM);
@@ -116,11 +116,9 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
         Phidiffac1 = (8*ll+6)/gsl_pow_2(1.0+r);
         Phidiffac2 = (ll/r-(2*ll+1)/(1.0+r));
 
-        //Phi[0]=Phifac;
         Phidiff[0]=Phifac*Phidiffac2;
         /*for (int n=1; n<NLIM; n++){
             Phi[n]=Phifac*gegen[n];
-            //Phidiff[n]=Phifac * ( (8*ll+6)/gsl_pow_2(1+r)*gegenm1[n-1] + (ll/r-(2*ll+1)/(1+r))*gegen[n]);
             Phidiff[n]=Phifac* (Phidiffac1*gegenm1[n-1] + Phidiffac2*gegen[n]);
         }*/
         Phi[:]=Phifac*gegen[:];
@@ -138,7 +136,7 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type sph, state_ty
                 CDEF[1]+=Phi[n]     *Var->Knlm[ll][mm][n][1];//D
                 CDEF[2]+=Phidiff[n] *Var->Knlm[ll][mm][n][0];//E
                 CDEF[3]+=Phidiff[n] *Var->Knlm[ll][mm][n][1];//F
-                }
+            }
             
             z = (ll*(ll+1))/2 +  mm;
             acc[0]-= legen[z] *     (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);

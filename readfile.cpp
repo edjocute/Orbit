@@ -1,4 +1,5 @@
 #include "main.h"
+#include "readfile.h"
 #include <math.h>
 #include <hdf5.h>
 #include <stdio.h>
@@ -105,7 +106,7 @@ int loadHdf5Init(char *filename, std::vector<state_type> &init){
 }
 
 
-int saveHdf5(Readparams &allparams, state_type &OUT, state_type &TIME){
+int saveHdf5(state_type &OUT, state_type &TIME){
     hid_t   hdf_file,hdf_group,hdf_data,dataspace_id;
     herr_t  status;
 
@@ -124,6 +125,7 @@ int saveHdf5(Readparams &allparams, state_type &OUT, state_type &TIME){
     /* Write particle positions and velocities.
      * Ordered in chunk where first Nstep+1 lines correspond to particle 1,
      * step Nstep+1 chunk correspond to particle 2 etc. */
+    std::cout << "Writing positions and velocities\n";
     hsize_t dims[1]={OUT.size()};
     dataspace_id=H5Screate_simple(1,dims,NULL);
     if ( (hdf_data=H5Dcreate2(hdf_file,"x",H5T_NATIVE_DOUBLE,dataspace_id,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT)) < 0){
@@ -133,6 +135,7 @@ int saveHdf5(Readparams &allparams, state_type &OUT, state_type &TIME){
     status=H5Dwrite(hdf_data, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &OUT[0]);
 
     /*Write times*/
+    std::cout << "Writing times\n";
     hsize_t dims2[1]={TIME.size()};
     dataspace_id=H5Screate_simple(1,dims2,NULL);
     if ( (hdf_data=H5Dcreate2(hdf_file,"t",H5T_NATIVE_DOUBLE,dataspace_id,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT)) < 0){
