@@ -64,10 +64,11 @@ int loadHdf5Input(char *filename, struct Indata *var){
 }
 
 /* Load and read file with initial positions and velocites */
-int loadHdf5Init(char *filename, std::vector<state_type> &init){
+int loadHdf5Init(char *filename, std::vector<array6> &init){
     hid_t   hdf_file,hdf_group,hdf_data,hdf_dspace;
     herr_t  status;
-    state_type x(6);
+    //state_type x(6);
+    array6 x;
 
     fprintf(stdout,"Reading file %s ...\n",filename);
     hdf_file = H5Fopen(filename,H5F_ACC_RDONLY,H5P_DEFAULT);

@@ -8,6 +8,10 @@ class Readparams{
         int NumSavepoints=16384; //no. of time points to be saved in output file per particle
         bool verbose, twocomp=false, firstpass, test;
         char *infilename1, *infilename2, *outfilename, *initfilename;
+
+        double decaytime=1.0e+15;
+        bool decay = false;
+
         int read(int argc, char *argv[]);
         void operator() (int argc, char *argv[]){
             read(argc,argv);

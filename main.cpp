@@ -9,7 +9,8 @@ Readparams allparams;
 
 int main( int argc, char* argv[]){
     struct Indata infile,infile2; //to store coefficients
-    std::vector<state_type> xinit,xinit_run; //to store array of initial positions and velocities
+    //std::vector<state_type> xinit;//,xinit_run; //to store array of initial positions and velocities
+    std::vector<array6> xinit, xinit_run;
 
     allparams.read(argc,argv);
 
@@ -40,7 +41,7 @@ int main( int argc, char* argv[]){
 
     if (allparams.firstpass){
         allparams.Npart=100;
-        xinit_run = std::vector<state_type>();
+        //xinit_run = std::vector<state_type>();
         std::cout << "FIRST PASS. Points to integrate = " << allparams.Npart << "\n";
         std::cout << "T_end=" << allparams.endTime <<'\n';
         int Interval= xinit.size()/allparams.Npart;
@@ -85,7 +86,7 @@ int main( int argc, char* argv[]){
         }
         std::cout << '\n';
     }
-    }
+   }
 
     /* Save data to output file */
     saveHdf5(XX,T);

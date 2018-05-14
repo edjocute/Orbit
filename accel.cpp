@@ -51,7 +51,7 @@ void calcAcc::cartVec(const state_type &x, state_type &vec){
  * Reads and return accelerations in cartesian coordinates
  * Allows for both 1 and 2 component models
  */
-void calcAcc::getCartAcc(const state_type x, state_type &dxdt){
+void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, double t){
     dxdt[0]=x[3]; dxdt[1]=x[4]; dxdt[2]=x[5]; //write velocities into dxdt
     state_type pos(3),acc(3);
 
@@ -154,8 +154,79 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type &sph, state_t
     acc[2]*= norm/(sintheta*r);
 }
 
+void calcAcc::getSphAccDecay(const struct Indata *Var, const state_type &sph, state_type &acc, double t){
+    int z; //index for Legendre polynomials
+    double cosm[LLIM],sinm[LLIM],legen[NDIM],legendiff[NDIM];
+    double gegen[NLIM] __attribute__((aligned(32))), gegenm1[NLIM]  __attribute__((aligned(32)));
+    double Phi[NLIM]  __attribute__((aligned(32))),Phidiff[NLIM]  __attribute__((aligned(32)));
+    double CDEF[4],Phifac,Phidiffac1,Phidiffac2;
 
-void calcAcc::getPotential(const state_type x, double &pot){
+    const double sintheta=sqrt(1.-gsl_pow_2(sph[1]));
+    const double r=sph[0];
+    const double xi=(r-1.)/(r+1.);
+
+    double costerm, sinterm;
+
+    #pragma omp simd
+    for (int m=0;m<LLIM;m++){
+        cosm[m]=cos(m*sph[2]);
+        sinm[m]=sin(m*sph[2]);
+    }
+
+    gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE,LLIM,sph[1],-1,legen,legendiff);
+
+    for (int ll=0;ll<LLIM;ll++){
+        gsl_sf_gegenpoly_array(NLIM,2*ll+1.5,xi,gegen);
+        gsl_sf_gegenpoly_array(NLIM-1,2*ll+2.5,xi,gegenm1);
+        Phifac = -1*SQRT4PI*gsl_pow_int(r,ll)/gsl_pow_int(1.0+r,2*ll+1);
+        Phidiffac1 = (8*ll+6)/gsl_pow_2(1.0+r);
+        Phidiffac2 = (ll/r-(2*ll+1)/(1.0+r));
+
+        Phidiff[0]=Phifac*Phidiffac2;
+        Phi[:]=Phifac*gegen[:];
+        Phidiff[1:NLIM]=Phifac*(Phidiffac1*gegenm1[:] + Phidiffac2*gegen[1:NLIM]);
+
+        /* mm = 0 case */
+            int mm = 0;
+            CDEF[:]=0;
+            #pragma novector
+            for (int n=0; n<NLIM; n++){
+                CDEF[0]+=Phi[n]     *Var->Knlm[ll][mm][n][0];//C
+                //CDEF[1]+=Phi[n]     *Var->Knlm[ll][mm][n][1];//D
+                CDEF[2]+=Phidiff[n] *Var->Knlm[ll][mm][n][0];//E
+                //CDEF[3]+=Phidiff[n] *Var->Knlm[ll][mm][n][1];//F
+            }
+            z = (ll*(ll+1))/2;
+            acc[0]-= legen[z] *     (CDEF[2]*cosm[mm]);
+            acc[1]+= legendiff[z]*  (CDEF[0]*cosm[mm]);
+
+        /* mm > 0 case */
+        for (int mm=1;mm<=ll;mm++){
+            CDEF[:]=0;
+
+            #pragma novector
+            for (int n=0; n<NLIM; n++){
+                costerm = Var->Knlm[ll][mm][n][0] - Var->Knlm[ll][mm][n][0]/allparams.decaytime*t;
+                sinterm = Var->Knlm[ll][mm][n][1] - Var->Knlm[ll][mm][n][1]/allparams.decaytime*t;
+                CDEF[0]+=Phi[n]     * costerm;//C
+                CDEF[1]+=Phi[n]     * sinterm;//D
+                CDEF[2]+=Phidiff[n] * costerm;//E
+                CDEF[3]+=Phidiff[n] * sinterm;//F
+            }
+            
+            z = (ll*(ll+1))/2 +  mm;
+            acc[0]-= legen[z] *     (CDEF[2]*cosm[mm] + CDEF[3]*sinm[mm]);
+            acc[1]+= legendiff[z]*  (CDEF[0]*cosm[mm] + CDEF[1]*sinm[mm]);
+            acc[2]-= mm*legen[z]*   (CDEF[1]*cosm[mm] - CDEF[0]*sinm[mm]);
+        }
+    }
+
+    double norm=GRAVITY/gsl_pow_2(Var->scalerad);
+    acc[0]*= norm;
+    acc[1]*= norm*sintheta/r;
+    acc[2]*= norm/(sintheta*r);
+}
+void calcAcc::getPotential(const array6 &x, double &pot){
     state_type pos(3);
     double temppot;
 
