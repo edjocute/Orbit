@@ -51,7 +51,7 @@ void calcAcc::cartVec(const state_type &x, state_type &vec){
  * Reads and return accelerations in cartesian coordinates
  * Allows for both 1 and 2 component models
  */
-void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, double t){
+void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, const double t){
     dxdt[0]=x[3]; dxdt[1]=x[4]; dxdt[2]=x[5]; //write velocities into dxdt
     state_type pos(3),acc(3);
 
@@ -59,7 +59,7 @@ void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, double t){
     double ainv=1./var->scalerad;
     pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
     cartToSph(pos); //convert positions to spherical coordinates
-    getSphAcc(var,pos,acc); //calculate acceleration in spherical coordinates
+    getSphAcc(var,pos,acc,t); //calculate acceleration in spherical coordinates
     cartVec(pos,acc); //convert accelerations to cartesian
     dxdt[3]=acc[0]; dxdt[4]=acc[1]; dxdt[5]=acc[2];
 
@@ -69,7 +69,7 @@ void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, double t){
         ainv=1./varfp->scalerad;
         pos[0]=x[0]*ainv; pos[1]=x[1]*ainv; pos[2]=x[2]*ainv;
         cartToSph(pos);
-        getSphAcc(varfp,pos,acc);
+        getSphAcc(varfp,pos,acc,t);
         cartVec(pos,acc);
         dxdt[3]+=acc[0]; dxdt[4]+=acc[1]; dxdt[5]+=acc[2];
     }
@@ -78,7 +78,7 @@ void calcAcc::getCartAcc(const array6 &x, array6 &dxdt, double t){
 /*Calculates unnormalized accelerations from positions in spherical coordinates
  * Requires normalization by G/a**2
  */
-void calcAcc::getSphAcc(const struct Indata *Var, const state_type &sph, state_type &acc){
+void calcAcc::getSphAcc(const struct Indata *Var, const state_type &sph, state_type &acc, const double t){
 
     //int ndim=(LLIM+2)*(LLIM+3)/2;//array dimension required for Legendre polynomials
     //size_t ndim=gsl_sf_legendre_array_n(LLIM);
@@ -154,7 +154,7 @@ void calcAcc::getSphAcc(const struct Indata *Var, const state_type &sph, state_t
     acc[2]*= norm/(sintheta*r);
 }
 
-void calcAcc::getSphAccDecay(const struct Indata *Var, const state_type &sph, state_type &acc, double t){
+void calcAccDecay::getSphAcc(const struct Indata *Var, const state_type &sph, state_type &acc, const double t){
     int z; //index for Legendre polynomials
     double cosm[LLIM],sinm[LLIM],legen[NDIM],legendiff[NDIM];
     double gegen[NLIM] __attribute__((aligned(32))), gegenm1[NLIM]  __attribute__((aligned(32)));
