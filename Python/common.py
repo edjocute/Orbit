@@ -402,7 +402,7 @@ def nbody(xyz):
     force =np.zeros((len(xyz),3))
     for i in xrange(len(xyz)):
         if i%200==0:
-            print i
+            print(i)
         for j in xrange(i+1,len(xyz)):
             dr=xyz[j]-xyz[i]
             r=np.sqrt((dr**2).sum())
